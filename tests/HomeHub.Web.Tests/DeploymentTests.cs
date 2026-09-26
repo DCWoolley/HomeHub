@@ -39,6 +39,8 @@ public sealed class DeploymentTests
     [InlineData("/Account/Login")]
     [InlineData("/Account/Register")]
     [InlineData("/Account/ForgotPassword")]
+    [InlineData("/Account/ResendEmailConfirmation")]
+    [InlineData("/Account/ResetPassword?code=dGVzdA")]
     public async Task LanRoutesRenderWithoutRedirectingToHttps(string path)
     {
         using var factory = new DeploymentFactory();
@@ -47,6 +49,7 @@ public sealed class DeploymentTests
         var response = await client.GetAsync(path);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.DoesNotContain("id=\"app-sidebar\"", await response.Content.ReadAsStringAsync());
         if (path.StartsWith("/Account/"))
         {
             Assert.Contains("__RequestVerificationToken", await response.Content.ReadAsStringAsync());
@@ -55,6 +58,10 @@ public sealed class DeploymentTests
 
     [Theory]
     [InlineData("/Account/Manage")]
+    [InlineData("/Account/Manage/Email")]
+    [InlineData("/Account/Manage/Passkeys")]
+    [InlineData("/Account/Manage/TwoFactorAuthentication")]
+    [InlineData("/Account/Manage/DeletePersonalData")]
     [InlineData("/Home")]
     public async Task AccountManagementStillRequiresAuthentication(string path)
     {

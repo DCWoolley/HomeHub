@@ -8,10 +8,12 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Confirm email</PageTitle>
+<PageTitle>Confirm email | HomeHub</PageTitle>
 
-<h1>Confirm email</h1>
-<StatusMessage Message="@statusMessage" />
+<AccountCard Title="Confirm your email." Description="Your email confirmation status is shown below.">
+    <StatusMessage Message="@statusMessage" />
+    <div class="account-links"><p><a href="Account/Login">Back to sign in</a></p></div>
+</AccountCard>
 
 @code {
     private string? statusMessage;

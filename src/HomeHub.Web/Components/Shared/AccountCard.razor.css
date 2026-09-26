@@ -178,3 +178,218 @@ h1 {
     border-top: 1px solid #dce5df;
     padding-top: 1.5rem;
 }
+
+.account-card-wide {
+    max-width: 72rem;
+}
+
+.account-card ::deep .manage-layout {
+    display: grid;
+    grid-template-columns: 14rem minmax(0, 1fr);
+    gap: 2.5rem;
+    align-items: start;
+}
+
+.account-card ::deep .manage-content {
+    min-width: 0;
+    line-height: 1.6;
+}
+
+.account-card ::deep h2 {
+    margin: 0 0 1.5rem;
+    font-size: 1.65rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+}
+
+.account-card ::deep h4 {
+    margin: 1.75rem 0 1rem;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.account-card ::deep .manage-links {
+    display: grid;
+    gap: 0.35rem;
+    padding: 0;
+    margin: 0 0 1.5rem;
+    list-style: none;
+}
+
+.account-card ::deep .nav-link {
+    display: block;
+    box-sizing: border-box;
+    padding: 0.8rem 1rem;
+    border-radius: 0.65rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.account-card ::deep .nav-link:hover {
+    background: #edf4ef;
+}
+
+.account-card ::deep .nav-link.active {
+    background: #285941;
+    color: #fff;
+}
+
+.account-card ::deep .back-home {
+    display: inline-block;
+    margin: 0 1rem;
+}
+
+.account-card ::deep :is(button, .btn) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    box-shadow: none;
+}
+
+.account-card ::deep a.btn {
+    display: inline-block;
+    padding: 0.85rem 1.25rem;
+    margin: 0 0.35rem 0.75rem 0;
+    border: 1px solid #285941;
+    border-radius: 0.65rem;
+    background: #285941;
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.account-card ::deep a.btn:hover {
+    background: #1c402e;
+}
+
+.account-card ::deep :is(button, a).btn-danger {
+    border-color: #a12626;
+    background: #a12626;
+    color: #fff;
+}
+
+.account-card ::deep :is(button, a).btn-danger:hover {
+    border-color: #801e1e;
+    background: #801e1e;
+}
+
+.account-card ::deep .btn-link {
+    margin-top: 0.65rem;
+    background: #edf4ef;
+    color: #285941;
+    text-decoration: none;
+}
+
+.account-card ::deep .btn-link:hover {
+    background: #dce5df;
+}
+
+.account-card ::deep button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.account-card ::deep .form-control:disabled {
+    background: #f3f6f4;
+    color: #56685e;
+}
+
+.account-card ::deep .form-control:focus {
+    border-color: #285941;
+    box-shadow: 0 0 0 0.2rem rgb(40 89 65 / 15%);
+}
+
+.account-card ::deep .alert {
+    padding: 1rem 1.25rem;
+    border: 1px solid #dce5df;
+    border-radius: 0.65rem;
+    background: #edf4ef;
+    color: #203b31;
+    line-height: 1.6;
+}
+
+.account-card ::deep .alert p:last-child {
+    margin-bottom: 0;
+}
+
+.account-card ::deep .alert-warning {
+    border-color: #e5cf98;
+    background: #fff8e8;
+    color: #6b4b12;
+}
+
+.account-card ::deep .alert-danger {
+    border-color: #e8baba;
+    background: #fff1f1;
+    color: #a12626;
+}
+
+.account-card ::deep .table {
+    width: 100%;
+    table-layout: fixed;
+    margin-bottom: 1.5rem;
+    border-color: #dce5df;
+    --bs-table-color: #203b31;
+}
+
+.account-card ::deep .table td {
+    padding: 0.75rem 0.5rem;
+    vertical-align: middle;
+}
+
+.account-card ::deep .table button + button {
+    margin-top: 0.5rem;
+}
+
+.account-card ::deep :is(code, kbd) {
+    display: inline-block;
+    max-width: 100%;
+    padding: 0.35rem 0.6rem;
+    border-radius: 0.35rem;
+    background: #edf4ef;
+    color: #203b31;
+    overflow-wrap: anywhere;
+}
+
+.account-card ::deep .recovery-codes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+}
+
+.account-card ::deep .recovery-code {
+    display: block;
+    text-align: center;
+    letter-spacing: 0.04em;
+}
+
+.account-card ::deep .external-logins button + button {
+    margin-top: 0.65rem;
+}
+
+@media (max-width: 760px) {
+    .account-card-wide {
+        padding: 2rem 1.25rem;
+    }
+
+    .account-card ::deep .manage-layout {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 2rem;
+    }
+
+    .account-card ::deep .manage-navigation {
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid #dce5df;
+    }
+
+    .account-card ::deep .manage-links {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .account-card ::deep .nav-link {
+    display: block;
+    box-sizing: border-box;
+        padding: 0.75rem;
+        height: 100%;
+    }
+}

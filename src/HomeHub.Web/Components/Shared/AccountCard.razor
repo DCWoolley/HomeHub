@@ -1,5 +1,5 @@
 <main class="account-page">
-    <section class="account-card" aria-labelledby="account-heading">
+    <section class="account-card @(Wide ? "account-card-wide" : "")" aria-labelledby="account-heading">
         <a class="brand" href="">HomeHub</a>
         <h1 id="account-heading">@Title</h1>
         <p class="intro">@Description</p>
@@ -10,5 +10,6 @@
 @code {
     [Parameter, EditorRequired] public string Title { get; set; } = "";
     [Parameter, EditorRequired] public string Description { get; set; } = "";
+    [Parameter] public bool Wide { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
 }

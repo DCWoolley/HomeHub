@@ -27,7 +27,9 @@ The home page at `/` lives in `Features/Home/Index.razor` and provides Sign in a
 
 ## Identity development
 
-The sign-in and registration pages share the home page's green-and-white card styling, with responsive forms and links between account entry points.
+Protected home and account settings pages use `Components/Layout/AppLayout.razor`, with a responsive sidebar inspired by [Sidebar with Submenus](https://blazorblueprintui.com/blueprints/sidebars/sidebar-02). It provides collapsible home/account navigation, active links, and an account menu with antiforgery-protected sign-out. On small screens the sidebar starts closed; the header button toggles it and Escape closes it. Guest-accessible routes retain `MainLayout` without a sidebar, even for signed-in visitors. Native disclosure controls and a small `wwwroot/sidebar.js` module support static server-rendered account pages without changing their form lifecycle.
+
+All Identity pages share the home page's green-and-white card styling, including sign-in, registration, recovery, confirmation, and account settings. Settings use responsive navigation, visible field labels, and consistent security notices and actions.
 
 Registration requires a home name to create a home as its owner, or a single-use invitation code to join an existing home. Signed-in users can open **Your home** (`/Home`) to see membership, set up a home for an existing account, or generate seven-day invitations as an owner. See [Homes](src/HomeHub.Web/Features/Homes/README.md) for membership and invitation rules.
 

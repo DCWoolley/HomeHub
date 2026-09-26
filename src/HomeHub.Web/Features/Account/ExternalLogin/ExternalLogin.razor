@@ -16,34 +16,36 @@
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<ExternalLogin> Logger
 
-<PageTitle>Register</PageTitle>
+<PageTitle>Register | HomeHub</PageTitle>
 
-<StatusMessage Message="@message" />
-<h1>Register</h1>
-<h2>Associate your @ProviderDisplayName account.</h2>
-<hr />
+<AccountCard Title="Make yourself at home." Description="Finish setting up your HomeHub account.">
+    <StatusMessage Message="@message" />
+    <h2>Associate your @ProviderDisplayName account.</h2>
 
-<div  class="alert alert-info">
-    You've successfully authenticated with <strong>@ProviderDisplayName</strong>.
-    Please enter an email address for this site below and click the Register button to finish
-    logging in.
-</div>
 
-<div class="row">
-    <div class="col-md-4">
-        <EditForm Model="Input" OnValidSubmit="OnValidSubmitAsync" FormName="confirmation" method="post">
-            <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" role="alert" />
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="email" placeholder="Please enter your email." />
-                <label for="Input.Email" class="form-label">Email</label>
-                <ValidationMessage For="() => Input.Email" />
-            </div>
-            <HomeHub.Web.Components.Shared.HomeChoiceFields Input="Input" />
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
-        </EditForm>
+    <div  class="alert alert-info">
+        You've successfully authenticated with <strong>@ProviderDisplayName</strong>.
+        Please enter an email address for this site below and click the Register button to finish
+        logging in.
     </div>
-</div>
+
+    <div class="form-section">
+        <div class="form-content">
+            <EditForm Model="Input" OnValidSubmit="OnValidSubmitAsync" FormName="confirmation" method="post">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger" role="alert" />
+                <div class="form-field">
+                    <label for="Input.Email" class="form-label">Email</label>
+                    <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="email" placeholder="Please enter your email." />
+                    <ValidationMessage For="() => Input.Email" />
+                </div>
+                <HomeHub.Web.Components.Shared.HomeChoiceFields Input="Input" />
+                <button type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
+            </EditForm>
+        </div>
+    </div>
+    <div class="account-links"><p><a href="Account/Login">Back to sign in</a></p></div>
+</AccountCard>
 
 @code {
     public const string LoginCallbackAction = "LoginCallback";

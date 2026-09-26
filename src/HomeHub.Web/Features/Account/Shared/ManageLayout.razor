@@ -1,17 +1,10 @@
-﻿@inherits LayoutComponentBase
-@layout HomeHub.Web.Components.Layout.MainLayout
+@inherits LayoutComponentBase
+@layout HomeHub.Web.Components.Layout.AppLayout
 
-<h1>Manage your account</h1>
-
-<div>
-    <h2>Change your account settings</h2>
-    <hr />
-    <div class="row">
-        <div class="col-lg-3">
-            <ManageNavMenu />
-        </div>
-        <div class="col-lg-9">
+<AccountCard Title="Your account." Description="Manage your details and keep your HomeHub account secure." Wide="true">
+    <div class="manage-layout">
+        <div class="manage-content">
             @Body
         </div>
     </div>
-</div>
+</AccountCard>

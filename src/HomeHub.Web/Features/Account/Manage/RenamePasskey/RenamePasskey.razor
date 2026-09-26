@@ -8,6 +8,10 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject IdentityRedirectManager RedirectManager
 
+<PageTitle>Name your passkey | HomeHub</PageTitle>
+
+<h2>Name your passkey</h2>
+
 <EditForm Model="Input" OnValidSubmit="Rename" FormName="rename-passkey" method="post">
     <DataAnnotationsValidator />
     @if (passkey?.Name is { } name)
@@ -20,9 +24,9 @@
     }
     <hr />
     <ValidationSummary class="text-danger" role="alert" />
-    <div class="form-floating mb-3">
-        <InputText @bind-Value="Input.Name" id="Input.Name" class="form-control" aria-required="true" placeholder="My passkey" />
+    <div class="form-field">
         <label for="Input.Name" class="form-label">Passkey name</label>
+        <InputText @bind-Value="Input.Name" id="Input.Name" class="form-control" aria-required="true" placeholder="My passkey" />
         <ValidationMessage For="() => Input.Name" class="text-danger" />
     </div>
     <div>

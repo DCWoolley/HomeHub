@@ -1,5 +1,7 @@
 # Homes
 
+The protected `/Home` page uses the shared application sidebar, with home overview and account settings navigation. Public landing and registration pages retain their standalone layout.
+
 Registration requires exactly one of a home name (up to 100 characters) or an invitation code. A new home gives its creator ownership and membership. Joining an existing home gives membership only. Each user belongs to at most one home; home names need not be unique.
 
 Authenticated users can visit `/Home` from the landing page. Existing accounts with no membership can create or join a home there. Owners can generate invitations on this page; members cannot. The service checks ownership using the authenticated user ID, not a submitted home ID or role. Static server-rendered forms use antiforgery protection.

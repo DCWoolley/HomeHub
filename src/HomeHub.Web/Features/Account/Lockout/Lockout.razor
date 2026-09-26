@@ -1,8 +1,7 @@
-﻿@page "/Account/Lockout"
+@page "/Account/Lockout"
 
-<PageTitle>Locked out</PageTitle>
+<PageTitle>Locked out | HomeHub</PageTitle>
 
-<header>
-    <h1 class="text-danger">Locked out</h1>
-    <p class="text-danger" role="alert">This account has been locked out, please try again later.</p>
-</header>
+<AccountCard Title="Please try again later." Description="Your account has been temporarily locked.">
+    <div class="account-links"><p><a href="Account/Login">Back to sign in</a></p></div>
+</AccountCard>

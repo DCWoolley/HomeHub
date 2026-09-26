@@ -1,0 +1,68 @@
+@inherits LayoutComponentBase
+@layout MainLayout
+@using HomeHub.Web.Features.Account.Shared
+
+<div class="app-shell">
+    <a class="skip-link" href="#app-content">Skip to content</a>
+    <aside class="app-sidebar" id="app-sidebar" aria-label="Main navigation">
+        <a class="sidebar-brand" href="Home">
+            <span class="brand-mark" aria-hidden="true">H</span>
+            <span>HomeHub<small>A place for your home</small></span>
+        </a>
+
+        <nav class="sidebar-navigation" aria-label="App navigation">
+            <p class="group-label">Workspace</p>
+            <details class="navigation-group" open>
+                <summary><span aria-hidden="true">⌂</span> Your home</summary>
+                <div class="submenu">
+                    <NavLink href="Home" Match="NavLinkMatch.All">Overview</NavLink>
+                </div>
+            </details>
+            <details class="navigation-group" open>
+                <summary><span aria-hidden="true">⚙</span> Account</summary>
+                <nav class="submenu" aria-label="Account settings">
+                    <ManageNavMenu />
+                </nav>
+            </details>
+        </nav>
+
+        <AuthorizeView>
+            <Authorized Context="authentication">
+                <details class="account-menu">
+                    <summary>
+                        <span class="avatar" aria-hidden="true">@Initial(authentication.User.Identity?.Name)</span>
+                        <span class="account-identity"><strong>My account</strong><span>@authentication.User.Identity?.Name</span></span>
+                        <span aria-hidden="true">⌃</span>
+                    </summary>
+                    <div class="account-actions">
+                        <a href="Account/Manage">Manage account</a>
+                        <form action="Account/Logout" method="post">
+                            <AntiforgeryToken />
+                            <input type="hidden" name="returnUrl" value="" />
+                            <button type="submit">Sign out</button>
+                        </form>
+                    </div>
+                </details>
+            </Authorized>
+        </AuthorizeView>
+    </aside>
+
+    <div class="app-inset">
+        <header class="app-toolbar">
+            <button class="sidebar-toggle" type="button" aria-label="Toggle sidebar" aria-controls="app-sidebar" aria-expanded="true" data-sidebar-toggle>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3" /><path d="M9 3v18" /></svg>
+            </button>
+            <span class="toolbar-divider" aria-hidden="true"></span>
+            <a href="Home">HomeHub</a>
+            <span aria-hidden="true">/</span>
+            <span>Your workspace</span>
+        </header>
+        <div id="app-content" tabindex="-1">
+            @Body
+        </div>
+    </div>
+</div>
+
+@code {
+    private static string Initial(string? name) => string.IsNullOrWhiteSpace(name) ? "H" : name[..1].ToUpperInvariant();
+}

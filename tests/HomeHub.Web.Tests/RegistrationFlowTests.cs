@@ -79,6 +79,84 @@ public sealed class RegistrationFlowTests
         Assert.Empty(await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Users.ToListAsync());
     }
 
+    [Fact]
+    public async Task AccountSettingsRenderAndProfileFormStillSaves()
+    {
+        using var factory = new RegistrationFactory();
+        using var client = factory.Client();
+        await Register(client, "settings@example.test", "Settings home", "");
+        await factory.Confirm("settings@example.test");
+        await Post(client, "/Account/Login", "login", new()
+        {
+            ["Input.Email"] = "settings@example.test", ["Input.Password"] = "StrongPassword123!"
+        });
+
+        string[] pages = ["", "/Email", "/ChangePassword", "/ExternalLogins", "/TwoFactorAuthentication",
+            "/PersonalData", "/DeletePersonalData", "/EnableAuthenticator", "/ResetAuthenticator"];
+        foreach (var page in pages)
+        {
+            var html = await client.GetStringAsync("/Account/Manage" + page);
+            Assert.Contains("account-card-wide", html);
+            Assert.Contains("aria-label=\"Account settings\"", html);
+            Assert.DoesNotContain("form-floating", html);
+            Assert.Contains("<h2", html);
+        }
+
+        var response = await Post(client, "/Account/Manage", "profile", new()
+        {
+            ["Input.PhoneNumber"] = "01234567890"
+        });
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        var updated = await client.GetStringAsync("/Account/Manage");
+        Assert.Contains("01234567890", updated);
+    }
+
+    [Fact]
+    public async Task SidebarOnlyAppearsOnProtectedPagesAndLogoutSignsOut()
+    {
+        using var factory = new RegistrationFactory();
+        using var client = factory.Client();
+        await Register(client, "sidebar@example.test", "Sidebar home", "");
+        await factory.Confirm("sidebar@example.test");
+        await Post(client, "/Account/Login", "login", new()
+        {
+            ["Input.Email"] = "sidebar@example.test", ["Input.Password"] = "StrongPassword123!"
+        });
+
+        foreach (var path in new[] { "/Home", "/Account/Manage", "/Account/Manage/Email" })
+        {
+            var html = await client.GetStringAsync(path);
+            Assert.Contains("id=\"app-sidebar\"", html);
+            Assert.Contains("aria-label=\"Toggle sidebar\"", html);
+            Assert.Contains("sidebar@example.test", html);
+            Assert.Contains("action=\"Account/Logout\"", html);
+            Assert.Contains("aria-label=\"Account settings\"", html);
+        }
+
+        foreach (var path in new[] { "/", "/Account/Login", "/Account/Register", "/Account/ForgotPassword" })
+        {
+            Assert.DoesNotContain("id=\"app-sidebar\"", await client.GetStringAsync(path));
+        }
+
+        var home = await client.GetStringAsync("/Home");
+        var token = Regex.Match(home, "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"").Groups[1].Value;
+        // Static SSR status-code re-execution surfaces the antiforgery rejection through TestServer.
+        var missingToken = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            client.PostAsync("/Account/Logout", new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["returnUrl"] = ""
+            })));
+        Assert.Contains("invalid anti-forgery token", missingToken.Message);
+        Assert.Contains("id=\"app-sidebar\"", await client.GetStringAsync("/Home"));
+        var logout = await client.PostAsync("/Account/Logout", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["returnUrl"] = "", ["__RequestVerificationToken"] = WebUtility.HtmlDecode(token)
+        }));
+        Assert.Equal(HttpStatusCode.Redirect, logout.StatusCode);
+        var protectedPage = await client.GetAsync("/Home");
+        Assert.Contains("/Account/Login", protectedPage.Headers.Location!.OriginalString);
+    }
+
     private static Task<HttpResponseMessage> Register(HttpClient client, string email, string name, string code) =>
         Post(client, "/Account/Register", "register", new()
         {

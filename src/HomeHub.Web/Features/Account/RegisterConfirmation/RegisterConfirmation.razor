@@ -10,23 +10,23 @@
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Register confirmation</PageTitle>
+<PageTitle>Register confirmation | HomeHub</PageTitle>
 
-<h1>Register confirmation</h1>
+<AccountCard Title="Confirm your account." Description="Complete this last step to start using HomeHub.">
+    <StatusMessage Message="@statusMessage" />
 
-<StatusMessage Message="@statusMessage" />
-
-@if (emailConfirmationLink is not null)
-{
-    <p>
-        This app does not currently have a real email sender registered, see <a href="https://aka.ms/aspaccountconf">these docs</a> for how to configure a real email sender.
-        Normally this would be emailed: <a href="@emailConfirmationLink">Click here to confirm your account</a>
-    </p>
-}
-else
-{
-    <p role="alert">Please check your email to confirm your account.</p>
-}
+    @if (emailConfirmationLink is not null)
+    {
+        <p>
+            Email delivery is not set up yet. You can confirm your account here: <a href="@emailConfirmationLink">Click here to confirm your account</a>
+        </p>
+    }
+    else
+    {
+        <p role="alert">Please check your email to confirm your account.</p>
+    }
+    <div class="account-links"><p><a href="Account/Login">Back to sign in</a></p></div>
+</AccountCard>
 
 @code {
     private string? emailConfirmationLink;

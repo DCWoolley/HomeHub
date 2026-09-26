@@ -10,11 +10,11 @@
 @inject ILogger<DeletePersonalData> Logger
 @inject HomeHub.Application.Features.Homes.ManageHome.IHomeAccess Homes
 
-<PageTitle>Delete Personal Data</PageTitle>
+<PageTitle>Delete Personal Data | HomeHub</PageTitle>
 
 <StatusMessage Message="@message" />
 
-<h3>Delete Personal Data</h3>
+<h2>Delete Personal Data</h2>
 
 <div class="alert alert-warning" role="alert">
     <p>
@@ -28,9 +28,9 @@
         <ValidationSummary class="text-danger" role="alert" />
         @if (requirePassword)
         {
-            <div class="form-floating mb-3">
-                <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" placeholder="Please enter your password." />
+            <div class="form-field">
                 <label for="Input.Password" class="form-label">Password</label>
+                <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" placeholder="Please enter your password." />
                 <ValidationMessage For="() => Input.Password" class="text-danger" />
             </div>
         }

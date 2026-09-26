@@ -9,11 +9,12 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Confirm email change</PageTitle>
+<PageTitle>Confirm email change | HomeHub</PageTitle>
 
-<h1>Confirm email change</h1>
-
-<StatusMessage Message="@message" />
+<AccountCard Title="Confirm your new email." Description="Keep your account details up to date.">
+    <StatusMessage Message="@message" />
+    <div class="account-links"><p><a href="Account/Login">Back to sign in</a></p></div>
+</AccountCard>
 
 @code {
     private string? message;

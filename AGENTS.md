@@ -34,6 +34,8 @@ Razor imports are folder-scoped. Root-level Web features do not inherit `Compone
 
 ## Clean code practices
 
+Protected Web pages use `Components/Layout/AppLayout.razor` (directly or through `ManageLayout`) for the shared sidebar. Guest-accessible pages use `MainLayout` and remain sidebar-free even when signed in. Apply authorization separately from layout selection. Keep sidebar interactions compatible with static SSR account forms.
+
 - Prefer small, cohesive types and methods with clear, intention-revealing names.
 - Follow the surrounding C# and Razor formatting. Keep nullable reference types and implicit usings enabled.
 - Prefer the simplest implementation that satisfies the use case. Avoid speculative abstractions, generic repositories, unnecessary base classes, and unrelated refactors.

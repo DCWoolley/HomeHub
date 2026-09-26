@@ -9,40 +9,41 @@
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<LoginWith2fa> Logger
 
-<PageTitle>Two-factor authentication</PageTitle>
+<PageTitle>Two-factor authentication | HomeHub</PageTitle>
 
-<h1>Two-factor authentication</h1>
-<hr />
-<StatusMessage Message="@message" />
-<p>Your login is protected with an authenticator app. Enter your authenticator code below.</p>
-<div class="row">
-    <div class="col-md-4">
-        <EditForm Model="Input" FormName="login-with-2fa" OnValidSubmit="OnValidSubmitAsync" method="post">
-            <input type="hidden" name="ReturnUrl" value="@ReturnUrl" />
-            <input type="hidden" name="RememberMe" value="@RememberMe" />
-            <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" role="alert" />
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.TwoFactorCode" id="Input.TwoFactorCode" class="form-control" autocomplete="off" />
-                <label for="Input.TwoFactorCode" class="form-label">Authenticator code</label>
-                <ValidationMessage For="() => Input.TwoFactorCode" class="text-danger" />
-            </div>
-            <div class="checkbox mb-3">
-                <label for="remember-machine" class="form-label">
-                    <InputCheckbox @bind-Value="Input.RememberMachine" />
-                    Remember this machine
-                </label>
-            </div>
-            <div>
-                <button type="submit" class="w-100 btn btn-lg btn-primary">Log in</button>
-            </div>
-        </EditForm>
+<AccountCard Title="One more step." Description="Enter the code from your authenticator app to sign in.">
+    <StatusMessage Message="@message" />
+    <p>Your login is protected with an authenticator app. Enter your authenticator code below.</p>
+    <div class="form-section">
+        <div class="form-content">
+            <EditForm Model="Input" FormName="login-with-2fa" OnValidSubmit="OnValidSubmitAsync" method="post">
+                <input type="hidden" name="ReturnUrl" value="@ReturnUrl" />
+                <input type="hidden" name="RememberMe" value="@RememberMe" />
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger" role="alert" />
+                <div class="form-field">
+                    <label for="Input.TwoFactorCode" class="form-label">Authenticator code</label>
+                    <InputText @bind-Value="Input.TwoFactorCode" id="Input.TwoFactorCode" class="form-control" autocomplete="off" />
+                    <ValidationMessage For="() => Input.TwoFactorCode" class="text-danger" />
+                </div>
+                <div class="checkbox mb-3">
+                    <label class="remember-me">
+                        <InputCheckbox @bind-Value="Input.RememberMachine" />
+                        Remember this machine
+                    </label>
+                </div>
+                <div>
+                    <button type="submit" class="w-100 btn btn-lg btn-primary">Log in</button>
+                </div>
+            </EditForm>
+        </div>
     </div>
-</div>
-<p>
-    Don't have access to your authenticator device? You can
-    <a href="Account/LoginWithRecoveryCode?ReturnUrl=@ReturnUrl">log in with a recovery code</a>.
-</p>
+    <p>
+        Don't have access to your authenticator device? You can
+        <a href="Account/LoginWithRecoveryCode?ReturnUrl=@ReturnUrl">log in with a recovery code</a>.
+    </p>
+    <div class="account-links"><p><a href="Account/Login">Back to sign in</a></p></div>
+</AccountCard>
 
 @code {
     private string? message;

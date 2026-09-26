@@ -16,4 +16,9 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.12" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="../HomeHub.Application/HomeHub.Application.csproj" />
+    <ProjectReference Include="../HomeHub.Infrastructure/HomeHub.Infrastructure.csproj" />
+  </ItemGroup>
+
 </Project>

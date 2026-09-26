@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/HomeHub.Web/HomeHub.Web.csproj" Id="b8f4c9c0-2c03-48cc-99d5-e52b6fa22383" />
+  </Folder>
+  <Folder Name="/tests/" />
+</Solution>

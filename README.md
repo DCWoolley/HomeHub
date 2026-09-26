@@ -23,7 +23,7 @@ Run integration tests with `dotnet test HomeHub.slnx --no-restore -v:m`. Tests c
 
 Use vertical slices, grouping code by feature and use case. Web features live at `src/HomeHub.Web/Features/<Feature>/<UseCase>/`, alongside `Components`, never inside it. Application use cases live at `src/HomeHub.Application/Features/<Feature>/<UseCase>/` and preserve the dependency boundaries above.
 
-The minimal landing page at `/` lives in `Features/Home/Index.razor`. Template demo content has been removed. Identity pages live in `Features/Account` by use case; error/not-found pages remain under `Components`.
+The home page at `/` lives in `Features/Home/Index.razor` and provides Sign in and Register buttons linking to the existing account pages. Its responsive styling is scoped to the home page. Template demo content has been removed. Identity pages live in `Features/Account` by use case; error/not-found pages remain under `Components`.
 
 ## Identity development
 
@@ -40,7 +40,9 @@ Migration history remains in Infrastructure. See the [account feature documentat
 
 ## Deploy to Unraid over SSH
 
-Production deployment requires an explicit request. Install the Docker CLI and Compose, and configure SSH key access through the `serverone` SSH alias with Docker socket access. Keep host, username, SSH port, and key settings in SSH configuration, outside the repository.
+Agents have standing user authorization to deploy after implementing new functionality or changing application behavior, once required verification passes, unless the user explicitly asks not to deploy. Documentation-only changes do not require deployment. Follow this runbook and verify container health and readiness before reporting success; report any verification or deployment blockers.
+
+Install the Docker CLI and Compose, and configure SSH key access through the `serverone` SSH alias with Docker socket access. Keep host, username, SSH port, and key settings in SSH configuration, outside the repository.
 
 Confirm the target:
 

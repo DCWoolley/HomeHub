@@ -54,7 +54,8 @@ Razor imports are folder-scoped. Root-level Web features do not inherit `Compone
 
 ## Unraid deployment
 
-- Deploy production only when explicitly requested. Follow [the deployment runbook](README.md#deploy-to-unraid-over-ssh).
+- After implementing new functionality or changing application behavior, always deploy to production once the required verification passes, unless the user explicitly asks not to deploy. This is standing user authorization; do not ask for deployment confirmation again. Follow [the deployment runbook](README.md#deploy-to-unraid-over-ssh).
+- Documentation-only changes do not require deployment. If verification or deployment is blocked, report the blocker and do not claim deployment succeeded.
 - Use Docker context `serverone` (`ssh://serverone`) and the local working tree. Preserve HomeHub's port 5293, existing SQL database, and named volume `homehub_homehub-data-protection` unless a change is requested.
 - Keep credentials in ignored `.env.unraid`; `.env.unraid.example` contains placeholders only. Never print resolved Compose configuration or container environment variables containing secrets.
 - Infrastructure owns startup migrations and database readiness; Web maps health endpoints and configures data protection. Compose opts into startup migrations and LAN HTTP explicitly; local HTTPS defaults remain enabled.

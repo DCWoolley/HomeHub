@@ -1,6 +1,15 @@
 @page "/"
-@using Microsoft.AspNetCore.Components.Web
 
 <PageTitle>HomeHub</PageTitle>
 
-<h1>HomeHub</h1>
+<main class="home-page">
+    <section class="welcome" aria-labelledby="welcome-heading">
+        <span class="brand">HomeHub</span>
+        <h1 id="welcome-heading">Welcome home.</h1>
+        <p>Sign in to your HomeHub account, or register to get started.</p>
+        <nav class="account-actions" aria-label="Account">
+            <a class="account-button sign-in" href="Account/Login">Sign in</a>
+            <a class="account-button register" href="Account/Register">Register</a>
+        </nav>
+    </section>
+</main>

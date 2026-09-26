@@ -1,0 +1,14 @@
+**/.env*
+**/.git
+**/.vs
+**/.vscode
+**/bin
+**/obj
+**/node_modules
+**/TestResults
+**/*.user
+**/*.pfx
+**/*.key
+.agents
+.codex
+artifacts

@@ -1,15 +1,14 @@
 using HomeHub.Web.Components;
-using HomeHub.Web.Components.Account;
-using HomeHub.Web.Data;
-using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
+using HomeHub.Web.Features.Account;
+using HomeHub.Infrastructure;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 namespace HomeHub.Web
 {
 	public class Program
 	{
-		public static void Main(string[] args)
+		public static async Task Main(string[] args)
 		{
 			var builder = WebApplication.CreateBuilder(args);
 
@@ -17,34 +16,24 @@ namespace HomeHub.Web
 			builder.Services.AddRazorComponents()
 				.AddInteractiveServerComponents();
 
-			builder.Services.AddCascadingAuthenticationState();
-			builder.Services.AddScoped<IdentityRedirectManager>();
-			builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
-
-			builder.Services.AddAuthentication(options =>
-				{
-					options.DefaultScheme = IdentityConstants.ApplicationScheme;
-					options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
-				})
-				.AddIdentityCookies();
-
-			var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-			builder.Services.AddDbContext<ApplicationDbContext>(options =>
-				options.UseSqlServer(connectionString));
+			builder.Services.AddInfrastructure(builder.Configuration);
+			builder.Services.AddAccountFeature();
 			builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
-			builder.Services.AddIdentityCore<ApplicationUser>(options =>
-				{
-					options.SignIn.RequireConfirmedAccount = true;
-					options.Stores.SchemaVersion = IdentitySchemaVersions.Version3;
-				})
-				.AddEntityFrameworkStores<ApplicationDbContext>()
-				.AddSignInManager()
-				.AddDefaultTokenProviders();
-
-			builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+			var keysPath = builder.Configuration["DataProtection:KeysPath"];
+			if (!string.IsNullOrWhiteSpace(keysPath))
+			{
+				builder.Services.AddDataProtection()
+					.PersistKeysToFileSystem(new DirectoryInfo(keysPath));
+			}
 
 			var app = builder.Build();
+			if (app.Configuration.GetValue<bool>("Database:ApplyMigrations"))
+			{
+				await app.Services.ApplyDatabaseMigrationsAsync(app.Lifetime.ApplicationStopping);
+			}
+
+			var useHttpsRedirection = app.Configuration.GetValue("Deployment:UseHttpsRedirection", true);
 
 			// Configure the HTTP request pipeline.
 			if (app.Environment.IsDevelopment())
@@ -54,12 +43,17 @@ namespace HomeHub.Web
 			else
 			{
 				app.UseExceptionHandler("/Error");
-				// The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
-				app.UseHsts();
+				if (useHttpsRedirection)
+				{
+					app.UseHsts();
+				}
 			}
 
 			app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
-			app.UseHttpsRedirection();
+			if (useHttpsRedirection)
+			{
+				app.UseHttpsRedirection();
+			}
 
 			app.UseAntiforgery();
 
@@ -68,9 +62,14 @@ namespace HomeHub.Web
 				.AddInteractiveServerRenderMode();
 
 			// Add additional endpoints required by the Identity /Account Razor components.
-			app.MapAdditionalIdentityEndpoints();
+			app.MapAccountEndpoints();
+			app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
+			app.MapHealthChecks("/health/ready", new HealthCheckOptions
+			{
+				Predicate = registration => registration.Tags.Contains("ready")
+			});
 
-			app.Run();
+			await app.RunAsync();
 		}
 	}
 }

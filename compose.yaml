@@ -1,0 +1,24 @@
+name: homehub
+
+services:
+  app:
+    container_name: homehub
+    image: homehub:local
+    build:
+      context: .
+    restart: unless-stopped
+    ports:
+      - "${HOMEHUB_PORT:-5293}:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: "8080"
+      ConnectionStrings__DefaultConnection: ${HOMEHUB_CONNECTION_STRING:?Set HOMEHUB_CONNECTION_STRING in .env.unraid}
+      Database__ApplyMigrations: "true"
+      Deployment__UseHttpsRedirection: "false"
+      DataProtection__KeysPath: /home/app/.aspnet/DataProtection-Keys
+    volumes:
+      - homehub-data-protection:/home/app/.aspnet/DataProtection-Keys
+
+volumes:
+  homehub-data-protection:
+    name: homehub_homehub-data-protection

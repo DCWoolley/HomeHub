@@ -53,13 +53,15 @@ public sealed class DeploymentTests
         }
     }
 
-    [Fact]
-    public async Task AccountManagementStillRequiresAuthentication()
+    [Theory]
+    [InlineData("/Account/Manage")]
+    [InlineData("/Home")]
+    public async Task AccountManagementStillRequiresAuthentication(string path)
     {
         using var factory = new DeploymentFactory();
         using var client = CreateClient(factory);
 
-        var response = await client.GetAsync("/Account/Manage");
+        var response = await client.GetAsync(path);
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.Contains("/Account/Login", response.Headers.Location!.OriginalString);

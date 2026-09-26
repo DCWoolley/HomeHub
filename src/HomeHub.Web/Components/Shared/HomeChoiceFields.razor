@@ -1,0 +1,19 @@
+<fieldset class="home-choice">
+    <legend>Your home</legend>
+    <p>Create a home and become its owner, or use a code from an existing home's owner. Fill in one option only.</p>
+    <div class="form-field">
+        <label for="home-name">Create a home</label>
+        <InputText id="home-name" @bind-Value="Input.HomeName" class="form-control" maxlength="100" placeholder="Home name" />
+        <ValidationMessage For="() => Input.HomeName" />
+    </div>
+    <p class="divider">or</p>
+    <div class="form-field">
+        <label for="invitation-code">Join a home</label>
+        <InputText id="invitation-code" @bind-Value="Input.InvitationCode" class="form-control" maxlength="32" autocomplete="off" placeholder="32-character invitation code" />
+        <ValidationMessage For="() => Input.InvitationCode" />
+    </div>
+</fieldset>
+
+@code {
+    [Parameter, EditorRequired] public HomeChoiceInput Input { get; set; } = default!;
+}

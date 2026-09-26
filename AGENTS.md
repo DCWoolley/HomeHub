@@ -28,6 +28,7 @@ Organize business functionality by feature and use case, rather than global fold
 - Organize Domain by domain concept or aggregate. Organize Infrastructure implementations by capability or feature as appropriate; do not force either project to mirror every UI use case.
 - A slice can span projects, but it must respect the dependency boundaries above. Keep business rules in Domain, orchestration in Application, and technical details in Infrastructure.
 - Share code only when there is a demonstrated need. Do not couple slices through another slice's internal handler or UI model.
+- Homes and invitations are domain concepts. Registration uses Application contracts with atomic Identity and membership persistence in Infrastructure. Shared account/home card and home-choice controls live in `Components/Shared` because both features use them. See [Homes](src/HomeHub.Web/Features/Homes/README.md).
 
 Razor imports are folder-scoped. Root-level Web features do not inherit `Components/_Imports.razor`. Add imports at `Features/_Imports.razor` or in a narrower feature scope as needed. When moving Razor files, check namespaces, component references, routes, authorization, CSS isolation, and collocated JavaScript paths.
 

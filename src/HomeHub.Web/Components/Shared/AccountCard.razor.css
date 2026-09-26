@@ -1,0 +1,180 @@
+.account-page {
+    box-sizing: border-box;
+    min-height: 100vh;
+    min-height: 100svh;
+    display: grid;
+    place-items: center;
+    padding: 2rem 1rem;
+    background: #f3f6f4;
+    color: #203b31;
+    font-family: system-ui, sans-serif;
+}
+
+.account-card {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 36rem;
+    padding: clamp(2rem, 6vw, 4rem);
+    border: 1px solid #dce5df;
+    border-radius: 1.5rem;
+    background: #fff;
+    box-shadow: 0 1rem 3rem rgb(32 59 49 / 6%);
+    overflow-wrap: anywhere;
+}
+
+.account-card ::deep .home-choice {
+    margin: 1.5rem 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+}
+
+.account-card ::deep .home-choice legend {
+    font-size: 1.3rem;
+    font-weight: 700;
+}
+
+.account-card ::deep .home-choice p {
+    color: #56685e;
+    line-height: 1.6;
+}
+
+.account-card ::deep .invitation-result {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background: #edf4ef;
+    border-radius: 0.65rem;
+}
+
+.brand {
+    display: block;
+    margin-bottom: 2rem;
+    color: #203b31;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-align: center;
+    text-decoration: none;
+}
+
+h1 {
+    margin: 0 0 1rem;
+    font-size: clamp(2.25rem, 7vw, 3rem);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    text-align: center;
+}
+
+.intro {
+    margin: 0 0 2rem;
+    color: #56685e;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    text-align: center;
+}
+
+.account-card ::deep .form-field {
+    margin-bottom: 1.25rem;
+}
+
+.account-card ::deep .form-field label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.account-card ::deep .form-control {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 0.85rem 1rem;
+    border: 1px solid #a9b9ae;
+    border-radius: 0.65rem;
+    background: #fff;
+    color: #203b31;
+    font: inherit;
+}
+
+.account-card ::deep .remember-me {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.account-card ::deep input[type="checkbox"] {
+    width: 1.1rem;
+    height: 1.1rem;
+    accent-color: #285941;
+}
+
+.account-card ::deep button {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 0.85rem 1.5rem;
+    border: 1px solid #285941;
+    border-radius: 0.65rem;
+    background: #285941;
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.account-card ::deep button:hover {
+    background: #1c402e;
+}
+
+.account-card ::deep .passkey-button {
+    background: #fff;
+    color: #285941;
+}
+
+.account-card ::deep .passkey-button:hover {
+    background: #edf4ef;
+}
+
+.account-card ::deep a {
+    color: #285941;
+    text-underline-offset: 0.2em;
+}
+
+.account-card ::deep :is(a, button, input):focus-visible {
+    outline: 3px solid #285941;
+    outline-offset: 4px;
+}
+
+.account-card ::deep .divider {
+    margin: 1.25rem 0;
+    color: #56685e;
+    text-align: center;
+}
+
+.account-card ::deep .account-links {
+    margin-top: 1.5rem;
+    text-align: center;
+    line-height: 1.6;
+}
+
+.account-card ::deep .account-links p:last-child {
+    margin-bottom: 0;
+}
+
+.account-card ::deep :is(.validation-message, .validation-errors, .alert-danger) {
+    color: #a12626;
+    overflow-wrap: anywhere;
+}
+
+.account-card ::deep .validation-message {
+    margin-top: 0.4rem;
+    font-size: 0.9rem;
+}
+
+.account-card ::deep .alert {
+    margin-bottom: 1rem;
+}
+
+.account-card ::deep .external-logins {
+    margin-top: 1.5rem;
+    border-top: 1px solid #dce5df;
+    padding-top: 1.5rem;
+}

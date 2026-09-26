@@ -27,6 +27,10 @@ The home page at `/` lives in `Features/Home/Index.razor` and provides Sign in a
 
 ## Identity development
 
+The sign-in and registration pages share the home page's green-and-white card styling, with responsive forms and links between account entry points.
+
+Registration requires a home name to create a home as its owner, or a single-use invitation code to join an existing home. Signed-in users can open **Your home** (`/Home`) to see membership, set up a home for an existing account, or generate seven-day invitations as an owner. See [Homes](src/HomeHub.Web/Features/Homes/README.md) for membership and invitation rules.
+
 Run the app with `dotnet run --project src/HomeHub.Web`. The host supplies `ConnectionStrings:DefaultConnection` and retains the existing user-secrets identifier. The checked-in connection string uses SQL Server LocalDB.
 
 EF commands target Infrastructure with Web as the startup project, for example:

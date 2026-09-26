@@ -8,6 +8,7 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<DeletePersonalData> Logger
+@inject HomeHub.Application.Features.Homes.ManageHome.IHomeAccess Homes
 
 <PageTitle>Delete Personal Data</PageTitle>
 
@@ -72,6 +73,12 @@
         if (requirePassword && !await UserManager.CheckPasswordAsync(user, Input.Password))
         {
             message = "Error: Incorrect password.";
+            return;
+        }
+
+        if ((await Homes.GetAsync(user.Id, HttpContext.RequestAborted))?.IsOwner == true)
+        {
+            message = "Error: A home owner cannot delete their account while they own a home.";
             return;
         }
 

@@ -6,10 +6,21 @@
     <section class="welcome" aria-labelledby="welcome-heading">
         <span class="brand">HomeHub</span>
         <h1 id="welcome-heading">Welcome home.</h1>
+        <AuthorizeView>
+            <Authorized>
+                <p>Your home, together in one place.</p>
+                <nav class="account-actions" aria-label="Your account">
+                    <a class="account-button sign-in" href="Home">Your home</a>
+                    <a class="account-button register" href="Account/Manage">Your account</a>
+                </nav>
+            </Authorized>
+            <NotAuthorized>
         <p>Sign in to your HomeHub account, or register to get started.</p>
         <nav class="account-actions" aria-label="Account">
             <a class="account-button sign-in" href="Account/Login">Sign in</a>
             <a class="account-button register" href="Account/Register">Register</a>
         </nav>
+            </NotAuthorized>
+        </AuthorizeView>
     </section>
 </main>

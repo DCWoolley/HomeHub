@@ -10,6 +10,10 @@ This feature is the Web adapter for ASP.NET Core Identity. Public account pages 
 
 ## Behavior to preserve
 
+- Sign-in, registration, and home management use `Components/Shared/AccountCard.razor` and its scoped styles to match the home page. Account entry pages retain visible field labels, validation feedback, and return URLs when switching between them. External sign-in options are shown only when providers are configured.
+- Password and external-provider registration both require either a home name or an invitation code. The Application `IHomeRegistration` contract is implemented in Infrastructure, which commits Identity creation, membership, and invitation redemption in one database transaction. Confirmation email handling runs after that commit and retains the existing behavior.
+- Owners cannot delete their account while they own a home; the UI explains this and a database foreign key prevents orphaned homes. Ownership transfer and home deletion are not yet implemented. Deleting a non-owner account removes its membership.
+
 - Keep existing `/Account/...` route URLs, form actions, query parameters, and callback values stable when moving files.
 - `_Imports.razor` excludes account pages from interactive routing. `Manage/_Imports.razor` applies authorization and the account-management layout.
 - Account forms rely on static SSR and antiforgery tokens. Login uses the application cookie and external authentication uses the external cookie.

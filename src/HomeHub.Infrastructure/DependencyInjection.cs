@@ -28,6 +28,9 @@ public static class DependencyInjection
             .AddDefaultTokenProviders();
 
         services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+        services.AddSingleton(TimeProvider.System);
+        services.AddScoped<HomeHub.Application.Features.Account.Register.IHomeRegistration, Homes.HomeService>();
+        services.AddScoped<HomeHub.Application.Features.Homes.ManageHome.IHomeAccess, Homes.HomeService>();
 
         return services;
     }

@@ -38,12 +38,38 @@ namespace HomeHub.Infrastructure.Persistence.Migrations
                         .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("OwnerUserId")
                         .IsUnique();
 
                     b.ToTable("Homes");
+                });
+
+            modelBuilder.Entity("HomeHub.Domain.Homes.HomeFloor", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("HomeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HomeId");
+
+                    b.ToTable("HomeFloors");
                 });
 
             modelBuilder.Entity("HomeHub.Domain.Homes.HomeInvitation", b =>
@@ -63,6 +89,10 @@ namespace HomeHub.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("HomeId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("Revoked")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bit");
+
                     b.Property<bool>("Used")
                         .IsConcurrencyToken()
                         .HasColumnType("bit");
@@ -77,6 +107,37 @@ namespace HomeHub.Infrastructure.Persistence.Migrations
                     b.ToTable("HomeInvitations");
                 });
 
+            modelBuilder.Entity("HomeHub.Domain.Homes.HomeMember", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Colour")
+                        .HasMaxLength(7)
+                        .HasColumnType("nvarchar(7)");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("HomeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsAccountLinked")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsRetired")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HomeId");
+
+                    b.ToTable("HomeMembers");
+                });
+
             modelBuilder.Entity("HomeHub.Domain.Homes.HomeMembership", b =>
                 {
                     b.Property<string>("UserId")
@@ -86,11 +147,38 @@ namespace HomeHub.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("HomeId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("UserId");
 
                     b.HasIndex("HomeId");
 
+                    b.HasIndex("MemberId")
+                        .IsUnique();
+
                     b.ToTable("HomeMemberships");
+                });
+
+            modelBuilder.Entity("HomeHub.Domain.Homes.HomeRoom", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("FloorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FloorId");
+
+                    b.ToTable("HomeRooms");
                 });
 
             modelBuilder.Entity("HomeHub.Infrastructure.Identity.ApplicationUser", b =>
@@ -322,12 +410,30 @@ namespace HomeHub.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("HomeHub.Domain.Homes.HomeFloor", b =>
+                {
+                    b.HasOne("HomeHub.Domain.Homes.Home", null)
+                        .WithMany()
+                        .HasForeignKey("HomeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("HomeHub.Domain.Homes.HomeInvitation", b =>
                 {
                     b.HasOne("HomeHub.Domain.Homes.Home", null)
                         .WithMany()
                         .HasForeignKey("HomeId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HomeHub.Domain.Homes.HomeMember", b =>
+                {
+                    b.HasOne("HomeHub.Domain.Homes.Home", null)
+                        .WithMany()
+                        .HasForeignKey("HomeId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 
@@ -339,9 +445,24 @@ namespace HomeHub.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("HomeHub.Domain.Homes.HomeMember", null)
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("HomeHub.Infrastructure.Identity.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HomeHub.Domain.Homes.HomeRoom", b =>
+                {
+                    b.HasOne("HomeHub.Domain.Homes.HomeFloor", null)
+                        .WithMany()
+                        .HasForeignKey("FloorId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

@@ -63,6 +63,11 @@ public sealed class DeploymentTests
     [InlineData("/Account/Manage/TwoFactorAuthentication")]
     [InlineData("/Account/Manage/DeletePersonalData")]
     [InlineData("/Home")]
+    [InlineData("/Home/Configure")]
+    [InlineData("/Home/Members")]
+    [InlineData("/Home/Members/New")]
+    [InlineData("/Home/Members/Edit/00000000-0000-0000-0000-000000000001")]
+    [InlineData("/Home/Members/Remove/00000000-0000-0000-0000-000000000001")]
     public async Task AccountManagementStillRequiresAuthentication(string path)
     {
         using var factory = new DeploymentFactory();

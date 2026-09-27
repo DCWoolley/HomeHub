@@ -10,8 +10,10 @@ public sealed class HomeMembership
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
         HomeId = homeId;
         UserId = userId;
+        MemberId = Guid.NewGuid();
     }
 
     public Guid HomeId { get; private set; }
+    public Guid MemberId { get; private set; }
     public string UserId { get; private set; } = "";
 }

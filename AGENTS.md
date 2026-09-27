@@ -29,6 +29,7 @@ Organize business functionality by feature and use case, rather than global fold
 - A slice can span projects, but it must respect the dependency boundaries above. Keep business rules in Domain, orchestration in Application, and technical details in Infrastructure.
 - Share code only when there is a demonstrated need. Do not couple slices through another slice's internal handler or UI model.
 - Homes and invitations are domain concepts. Registration uses Application contracts with atomic Identity and membership persistence in Infrastructure. Shared account/home card and home-choice controls live in `Components/Shared` because both features use them. See [Homes](src/HomeHub.Web/Features/Homes/README.md).
+- `HomeMember` is a stable profile; `HomeMembership` is the current account's access link. Removing a member retires the profile and deletes the access link atomically. Use `IHomeMembers.GetMembersAsync` for active member choices and always revalidate current membership in server-side household requests. Do not use login cookies alone to authorize household access.
 
 Razor imports are folder-scoped. Root-level Web features do not inherit `Components/_Imports.razor`. Add imports at `Features/_Imports.razor` or in a narrower feature scope as needed. When moving Razor files, check namespaces, component references, routes, authorization, CSS isolation, and collocated JavaScript paths.
 
@@ -52,6 +53,7 @@ Protected Web pages use `Components/Layout/AppLayout.razor` (directly or through
 - Run `dotnet test HomeHub.slnx --no-restore -v:m`. Deployment integration tests under `tests/HomeHub.Web.Tests` verify health endpoints, LAN HTTP routes, account protection, and persistent data-protection keys without using the production database.
 - For Razor moves or UI changes, verify affected routes, rendering, and authentication behavior in addition to building when the environment permits.
 - For Identity persistence changes, run `dotnet ef migrations has-pending-model-changes --project src/HomeHub.Infrastructure --startup-project src/HomeHub.Web`. Do not apply database migrations merely to verify a refactor. See `src/HomeHub.Web/Features/Account/README.md` for Identity verification details.
+- For membership migration changes, run the tests with `HOMEHUB_TEST_LOCALDB=1` on Windows with SQL Server LocalDB. The optional migration test creates an isolated database, verifies existing-member backfill, and deletes only that test database.
 - For documentation-only changes, check accuracy, paths, links, and `git diff --check`; a build is not required.
 - Report what was verified and any blocked checks honestly.
 

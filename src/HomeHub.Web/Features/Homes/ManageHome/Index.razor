@@ -5,6 +5,7 @@
 @using System.Security.Claims
 @using HomeHub.Application.Features.Homes.ManageHome
 @inject IHomeAccess Homes
+@inject TimeProvider Clock
 
 <PageTitle>Your home | HomeHub</PageTitle>
 
@@ -36,6 +37,30 @@
                 <p>Expires @invitation.ExpiresAt?.ToString("dd MMM yyyy HH:mm 'UTC'").</p>
             </div>
         }
+        @if (invitations.Count > 0)
+        {
+            <h2>Invitations</h2>
+            <EditForm Model="Revoke" method="post" FormName="revoke-invitation" OnSubmit="RevokeInvitation">
+                <ul>
+                    @foreach (var item in invitations)
+                    {
+                        <li>
+                            Expires @item.ExpiresAt.ToString("dd MMM yyyy HH:mm 'UTC'") ·
+                            @(item.Revoked ? "Revoked" : item.Used ? "Used" : item.ExpiresAt <= Clock.GetUtcNow() ? "Expired" : "Available")
+                            @if (!item.Revoked && !item.Used && item.ExpiresAt > Clock.GetUtcNow())
+                            {
+                                <button type="submit" name="Revoke.Id" value="@item.Id">Revoke this invitation</button>
+                            }
+                        </li>
+                    }
+                </ul>
+            </EditForm>
+        }
+    }
+    @if (home is not null)
+    {
+        <p class="account-links"><a href="Home/Members">View and manage members</a></p>
+        <p class="account-links"><a href="Home/Configure">@(home.IsOwner ? "Configure home" : "View floors and rooms")</a></p>
     }
     <p class="account-links"><a href="">Back to HomeHub</a></p>
 </AccountCard>
@@ -43,6 +68,8 @@
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
     [SupplyParameterFromForm] private HomeChoiceInput Input { get; set; } = default!;
+    [SupplyParameterFromForm(FormName = "revoke-invitation")] private RevokeInput Revoke { get; set; } = default!;
+    private IReadOnlyList<InvitationDetails> invitations = [];
     private HomeDetails? home;
     private InvitationResult? invitation;
     private string? error;
@@ -51,7 +78,9 @@
     protected override async Task OnInitializedAsync()
     {
         Input ??= new();
+        Revoke ??= new();
         home = await Homes.GetAsync(UserId, HttpContext.RequestAborted);
+        invitations = await Homes.GetInvitationsAsync(UserId, HttpContext.RequestAborted);
     }
 
     private async Task JoinHome()
@@ -64,5 +93,14 @@
     {
         invitation = await Homes.InviteAsync(UserId, HttpContext.RequestAborted);
         error = invitation.Error;
+        invitations = await Homes.GetInvitationsAsync(UserId, HttpContext.RequestAborted);
     }
+
+    private async Task RevokeInvitation()
+    {
+        error = await Homes.RevokeInvitationAsync(UserId, Revoke.Id, HttpContext.RequestAborted);
+        invitations = await Homes.GetInvitationsAsync(UserId, HttpContext.RequestAborted);
+    }
+
+    public sealed class RevokeInput { public Guid Id { get; set; } }
 }

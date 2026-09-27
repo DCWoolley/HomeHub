@@ -31,6 +31,7 @@ public static class DependencyInjection
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<HomeHub.Application.Features.Account.Register.IHomeRegistration, Homes.HomeService>();
         services.AddScoped<HomeHub.Application.Features.Homes.ManageHome.IHomeAccess, Homes.HomeService>();
+        services.AddScoped<HomeHub.Application.Features.Homes.ManageMembers.IHomeMembers, Homes.HomeService>();
 
         return services;
     }

@@ -1,0 +1,6 @@
+.member-list { list-style: none; padding: 0; margin: 0 0 2rem; }
+.member-list li { padding: 1.25rem 0; border-bottom: 1px solid #dce5df; }
+.member-heading { display: flex; align-items: center; gap: .65rem; }
+.member-colour { flex: 0 0 1rem; height: 1rem; border-radius: 50%; border: 1px solid #75887a; }
+.member-list p { color: #56685e; margin: .5rem 0; }
+.member-actions { display: flex; flex-wrap: wrap; gap: 1rem; }

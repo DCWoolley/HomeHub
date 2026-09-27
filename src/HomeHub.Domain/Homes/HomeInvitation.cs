@@ -18,8 +18,11 @@ public sealed class HomeInvitation
     public string CodeHash { get; private set; } = "";
     public DateTimeOffset ExpiresAt { get; private set; }
     public bool Used { get; private set; }
+    public bool Revoked { get; private set; }
 
-    public bool IsAvailable(DateTimeOffset now) => !Used && now < ExpiresAt;
+    internal void Revoke() => Revoked = true;
+
+    public bool IsAvailable(DateTimeOffset now) => !Used && !Revoked && now < ExpiresAt;
 
     public HomeMembership Redeem(string userId, DateTimeOffset now)
     {

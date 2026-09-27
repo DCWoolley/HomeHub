@@ -1,0 +1,81 @@
+@page "/Home/Members/New"
+@page "/Home/Members/Edit/{MemberId:guid}"
+@layout HomeHub.Web.Components.Layout.AppLayout
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@attribute [ExcludeFromInteractiveRouting]
+@using System.ComponentModel.DataAnnotations
+@using System.Security.Claims
+@using HomeHub.Application.Features.Homes.ManageMembers
+@inject IHomeMembers Homes
+@inject NavigationManager Navigation
+
+<PageTitle>Member profile | HomeHub</PageTitle>
+<AccountCard Title="@(MemberId is null ? "Add a non-user member" : "Edit member profile")" Description="A profile for someone who does not need their own account.">
+    @if (error is not null)
+    {
+        <p class="validation-message" role="alert">@error</p>
+    }
+    @if (allowed)
+    {
+        <EditForm Model="Input" method="post" FormName="member-profile" OnValidSubmit="Save">
+            <DataAnnotationsValidator />
+            <ValidationSummary role="alert" />
+            <div class="form-field">
+                <label for="member-name">Display name</label>
+                <InputText id="member-name" class="form-control" @bind-Value="Input.Name" maxlength="100" />
+            </div>
+            <div class="form-field">
+                <label for="member-colour">Colour (optional)</label>
+                <InputSelect id="member-colour" class="form-control" @bind-Value="Input.Colour">
+                    <option value="">No colour</option>
+                    <option value="#285941">Green</option>
+                    <option value="#2563EB">Blue</option>
+                    <option value="#9333EA">Purple</option>
+                    <option value="#BE185D">Pink</option>
+                    <option value="#C2410C">Orange</option>
+                    @if (!string.IsNullOrEmpty(Input.Colour) && !Colours.Contains(Input.Colour))
+                    {
+                        <option value="@Input.Colour">@Input.Colour</option>
+                    }
+                </InputSelect>
+            </div>
+            <p>This profile has no email, password or sign-in access.</p>
+            <button type="submit">Save profile</button>
+        </EditForm>
+    }
+    <p class="account-links"><a href="Home/Members">Back to members</a></p>
+</AccountCard>
+
+@code {
+    [Parameter] public Guid? MemberId { get; set; }
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    [SupplyParameterFromForm] private ProfileInput Input { get; set; } = default!;
+    private static readonly string[] Colours = ["#285941", "#2563EB", "#9333EA", "#BE185D", "#C2410C"];
+    private bool allowed;
+    private string? error;
+    private string UserId => HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var home = await Homes.GetMembersAsync(UserId, HttpContext.RequestAborted);
+        var member = home?.Members.SingleOrDefault(member => member.Id == MemberId);
+        allowed = home?.IsOwner == true && (MemberId is null || member is { IsAccountLinked: false });
+        if (!allowed) error = "Only the owner can edit active non-user profiles in this home.";
+        Input ??= new() { Name = member?.DisplayName ?? "", Colour = member?.Colour };
+    }
+
+    private async Task Save()
+    {
+        if (!allowed) return;
+        error = MemberId is { } id
+            ? await Homes.EditProfileAsync(UserId, id, Input.Name, Input.Colour, HttpContext.RequestAborted)
+            : await Homes.CreateProfileAsync(UserId, Input.Name, Input.Colour, HttpContext.RequestAborted);
+        if (error is null) Navigation.NavigateTo("Home/Members");
+    }
+
+    public sealed class ProfileInput
+    {
+        [Required, StringLength(100)] public string Name { get; set; } = "";
+        [RegularExpression("^#[0-9A-Fa-f]{6}$")] public string? Colour { get; set; }
+    }
+}

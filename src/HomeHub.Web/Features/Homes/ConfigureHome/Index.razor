@@ -1,0 +1,190 @@
+@page "/Home/Configure"
+@layout HomeHub.Web.Components.Layout.AppLayout
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@attribute [ExcludeFromInteractiveRouting]
+@using System.ComponentModel.DataAnnotations
+@using System.Security.Claims
+@using HomeHub.Application.Features.Homes.ManageHome
+@inject IHomeAccess Homes
+
+<PageTitle>Configure home | HomeHub</PageTitle>
+<AccountCard Title="@(home?.Name ?? "Your home")" Description="Manage your home, floors and rooms.">
+    @if (error is not null)
+    {
+        <p role="alert" class="validation-message">@error</p>
+    }
+    @if (status is not null)
+    {
+        <p role="status">@status</p>
+    }
+    @if (home is null)
+    {
+        <p>Create or join a home first.</p>
+    }
+    else
+    {
+        @if (home.IsOwner)
+        {
+            <section>
+                <h2>Home name</h2>
+                <EditForm Model="Rename" method="post" FormName="rename-home" OnValidSubmit="RenameHome">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary role="alert" />
+                    <div class="form-field">
+                        <label for="home-name">Home name</label>
+                        <InputText id="home-name" class="form-control" @bind-Value="Rename.Name" maxlength="100" />
+                    </div>
+                    <button type="submit">Save home name</button>
+                </EditForm>
+            </section>
+            <section>
+                <h2>Home timezone</h2>
+                <EditForm Model="Zone" method="post" FormName="home-timezone" OnValidSubmit="SaveTimeZone">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary role="alert" />
+                    <div class="form-field">
+                        <label for="home-timezone">Timezone</label>
+                        <InputSelect id="home-timezone" class="form-control" @bind-Value="Zone.Id">
+                            @foreach (var zone in TimeZoneInfo.GetSystemTimeZones())
+                            {
+                                <option value="@zone.Id">@zone.DisplayName</option>
+                            }
+                            @if (!TimeZoneInfo.GetSystemTimeZones().Any(zone => zone.Id == home.TimeZoneId))
+                            {
+                                <option value="@home.TimeZoneId">@home.TimeZoneId</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <p>Choose the local timezone for your household. New homes start in UTC.</p>
+                    <button type="submit">Save timezone</button>
+                </EditForm>
+            </section>
+            <section>
+                <h2>Add a floor</h2>
+                <EditForm Model="Floor" method="post" FormName="add-floor" OnValidSubmit="AddFloor">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary role="alert" />
+                    <div class="form-field">
+                        <label for="floor-name">Floor name</label>
+                        <InputText id="floor-name" class="form-control" @bind-Value="Floor.Name" maxlength="100" placeholder="e.g. Ground floor" />
+                    </div>
+                    <button type="submit">Add floor</button>
+                </EditForm>
+            </section>
+            @if (home.Floors.Count > 0)
+            {
+                <section>
+                    <h2>Add a room</h2>
+                    <EditForm Model="Room" method="post" FormName="add-room" OnValidSubmit="AddRoom">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary role="alert" />
+                        <div class="form-field">
+                            <label for="room-floor">Floor</label>
+                            <InputSelect id="room-floor" class="form-control" @bind-Value="Room.FloorId">
+                                <option value="">Choose a floor</option>
+                                @foreach (var floor in home.Floors)
+                                {
+                                    <option value="@floor.Id">@floor.Name</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="form-field">
+                            <label for="room-name">Room name</label>
+                            <InputText id="room-name" class="form-control" @bind-Value="Room.Name" maxlength="100" placeholder="e.g. Kitchen" />
+                        </div>
+                        <button type="submit">Add room</button>
+                    </EditForm>
+                </section>
+            }
+        }
+        else
+        {
+            <p>Timezone: @home.TimeZoneId. Only the home owner can change settings or add floors and rooms.</p>
+        }
+        <section>
+            <h2>Floors and rooms</h2>
+            @if (home.Floors.Count == 0)
+            {
+                <p>No floors yet. Add a floor before adding rooms.</p>
+            }
+            @foreach (var floor in home.Floors)
+            {
+                <h3>@floor.Name</h3>
+                @if (floor.Rooms.Count == 0)
+                {
+                    <p>No rooms yet.</p>
+                }
+                else
+                {
+                    <ul>
+                        @foreach (var room in floor.Rooms)
+                        {
+                            <li>@room.Name</li>
+                        }
+                    </ul>
+                }
+            }
+        </section>
+    }
+    <p class="account-links"><a href="Home">Back to your home</a></p>
+</AccountCard>
+
+@code {
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    [SupplyParameterFromForm(FormName = "rename-home")] private NameInput Rename { get; set; } = default!;
+    [SupplyParameterFromForm(FormName = "add-floor")] private NameInput Floor { get; set; } = default!;
+    [SupplyParameterFromForm(FormName = "add-room")] private RoomInput Room { get; set; } = default!;
+    [SupplyParameterFromForm(FormName = "home-timezone")] private TimeZoneInput Zone { get; set; } = default!;
+    private HomeDetails? home;
+    private string? error;
+    private string? status;
+    private string UserId => HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        home = await Homes.GetAsync(UserId, HttpContext.RequestAborted);
+        Rename ??= new() { Name = home?.Name ?? "" };
+        Floor ??= new();
+        Room ??= new();
+        Zone ??= new() { Id = home?.TimeZoneId ?? "UTC" };
+    }
+
+    private async Task RenameHome() => await Complete(
+        await Homes.RenameAsync(UserId, Rename.Name, HttpContext.RequestAborted), "Home name saved.");
+
+    private async Task SaveTimeZone() => await Complete(
+        await Homes.ChangeTimeZoneAsync(UserId, Zone.Id, HttpContext.RequestAborted), "Timezone saved.");
+
+    private async Task AddFloor() => await Complete(
+        await Homes.AddFloorAsync(UserId, Floor.Name, HttpContext.RequestAborted), "Floor added.");
+
+    private async Task AddRoom() => await Complete(
+        await Homes.AddRoomAsync(UserId, Room.FloorId ?? Guid.Empty, Room.Name, HttpContext.RequestAborted), "Room added.");
+
+    private async Task Complete(string? failure, string message)
+    {
+        error = failure;
+        if (error is not null) return;
+        status = message;
+        home = await Homes.GetAsync(UserId, HttpContext.RequestAborted);
+        Floor.Name = "";
+        Room.Name = "";
+    }
+
+    public class NameInput
+    {
+        [Required, StringLength(100)]
+        public string Name { get; set; } = "";
+    }
+
+    public sealed class TimeZoneInput
+    {
+        [Required, StringLength(100)] public string Id { get; set; } = "UTC";
+    }
+
+    public sealed class RoomInput : NameInput
+    {
+        [Required(ErrorMessage = "Choose a floor.")]
+        public Guid? FloorId { get; set; }
+    }
+}

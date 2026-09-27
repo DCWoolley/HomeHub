@@ -31,7 +31,11 @@ Protected home and account settings pages use `Components/Layout/AppLayout.razor
 
 All Identity pages share the home page's green-and-white card styling, including sign-in, registration, recovery, confirmation, and account settings. Settings use responsive navigation, visible field labels, and consistent security notices and actions.
 
-Registration requires a home name to create a home as its owner, or a single-use invitation code to join an existing home. Signed-in users can open **Your home** (`/Home`) to see membership, set up a home for an existing account, or generate seven-day invitations as an owner. See [Homes](src/HomeHub.Web/Features/Homes/README.md) for membership and invitation rules.
+Registration requires a home name to create a home as its owner, or a single-use invitation code to join an existing home. Signed-in users can open **Your home** (`/Home`) to see membership, set up a home for an existing account, or generate seven-day invitations as an owner. **Configure home** (`/Home/Configure`) lets the owner rename the home, add named floors, and add rooms to a selected floor. Members can view the floors and rooms. See [Homes](src/HomeHub.Web/Features/Homes/README.md) for membership and invitation rules.
+
+**Members** (`/Home/Members`) lists the owner, account-linked members and non-user profiles. Owners can create and edit non-user profiles with optional colours, and remove other members after confirmation. Removal immediately ends home access while preserving the account and historical profile. Owners can revoke invitation codes and configure the home's timezone; existing homes start in UTC. Registration and joining POSTs share a limit of ten attempts per minute per client IP. After confirmation and sign-in, the default destination is `/Home`.
+
+On Windows with SQL Server LocalDB, set `HOMEHUB_TEST_LOCALDB=1` before running the test command to include the migration backfill regression test. It creates and deletes a uniquely named test database and never targets the configured application database.
 
 Run the app with `dotnet run --project src/HomeHub.Web`. The host supplies `ConnectionStrings:DefaultConnection` and retains the existing user-secrets identifier. The checked-in connection string uses SQL Server LocalDB.
 

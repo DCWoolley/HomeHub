@@ -1,6 +1,7 @@
 using HomeHub.Web.Components;
 using HomeHub.Web.Features.Account;
 using HomeHub.Infrastructure;
+using HomeHub.Web.Features.Homes.JoinHome;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
@@ -18,6 +19,7 @@ namespace HomeHub.Web
 
 			builder.Services.AddInfrastructure(builder.Configuration);
 			builder.Services.AddAccountFeature();
+			builder.Services.AddJoinAttemptRateLimiting();
 			builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 			var keysPath = builder.Configuration["DataProtection:KeysPath"];
@@ -55,6 +57,7 @@ namespace HomeHub.Web
 				app.UseHttpsRedirection();
 			}
 
+			app.UseRateLimiter();
 			app.UseAntiforgery();
 
 			app.MapStaticAssets();

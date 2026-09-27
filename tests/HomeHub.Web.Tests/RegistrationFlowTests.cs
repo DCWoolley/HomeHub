@@ -157,6 +157,171 @@ public sealed class RegistrationFlowTests
         Assert.Contains("/Account/Login", protectedPage.Headers.Location!.OriginalString);
     }
 
+    [Fact]
+    public async Task ConfigurationFormsPersistAndRejectMemberChanges()
+    {
+        using var factory = new RegistrationFactory();
+        using var owner = factory.Client();
+        await Register(owner, "owner@example.test", "Original", "");
+        await factory.Confirm("owner@example.test");
+        await Post(owner, "/Account/Login", "login", new()
+        {
+            ["Input.Email"] = "owner@example.test", ["Input.Password"] = "StrongPassword123!"
+        });
+        var response = await Post(owner, "/Home/Configure", "rename-home", new() { ["Rename.Name"] = "Updated" });
+        Assert.Contains("Home name saved", await response.Content.ReadAsStringAsync());
+        response = await Post(owner, "/Home/Configure", "add-floor", new() { ["Floor.Name"] = "Ground floor" });
+        Assert.Contains("Floor added", await response.Content.ReadAsStringAsync());
+        using var scope = factory.Services.CreateScope();
+        var database = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var floor = await database.HomeFloors.SingleAsync();
+        response = await Post(owner, "/Home/Configure", "add-room", new()
+        {
+            ["Room.Name"] = "Kitchen", ["Room.FloorId"] = floor.Id.ToString()
+        });
+        Assert.Contains("Room added", await response.Content.ReadAsStringAsync());
+        Assert.Contains("Kitchen", await owner.GetStringAsync("/Home/Configure"));
+        Assert.Contains("Updated", await owner.GetStringAsync("/Home"));
+        response = await Post(owner, "/Home/Configure", "add-room", new()
+        {
+            ["Room.Name"] = "Invalid", ["Room.FloorId"] = Guid.NewGuid().ToString()
+        });
+        Assert.Contains("Choose a floor in a home you own", await response.Content.ReadAsStringAsync());
+        var invite = await Post(owner, "/Home", "invite-home", new());
+        var code = Regex.Match(await invite.Content.ReadAsStringAsync(), "<code>([A-F0-9]{32})</code>").Groups[1].Value;
+        using var member = factory.Client();
+        await Register(member, "member@example.test", "", code);
+        await factory.Confirm("member@example.test");
+        await Post(member, "/Account/Login", "login", new()
+        {
+            ["Input.Email"] = "member@example.test", ["Input.Password"] = "StrongPassword123!"
+        });
+        var html = await member.GetStringAsync("/Home/Configure");
+        Assert.Contains("Kitchen", html);
+        Assert.DoesNotContain("Save home name", html);
+        response = await Post(member, "/Home/Configure", "rename-home", new() { ["Rename.Name"] = "Hacked" });
+        Assert.False(response.IsSuccessStatusCode);
+        Assert.Equal("Updated", (await database.Homes.AsNoTracking().SingleAsync()).Name);
+        Assert.Single(await database.HomeRooms.ToListAsync());
+    }
+    [Fact]
+    public async Task MemberFormsPersistAndRemovalRevokesAnExistingLoginSession()
+    {
+        using var factory = new RegistrationFactory();
+        using var owner = factory.Client();
+        await Register(owner, "owner@example.test", "Family", "");
+        await SignIn(factory, owner, "owner@example.test");
+        var created = await Post(owner, "/Home/Members/New", "member-profile", new()
+        {
+            ["Input.Name"] = "Sam", ["Input.Colour"] = "#2563EB"
+        });
+        Assert.Equal(HttpStatusCode.Redirect, created.StatusCode);
+        Assert.Contains("Sam", await owner.GetStringAsync("/Home/Members"));
+        Guid profileId;
+        using (var scope = factory.Services.CreateScope())
+            profileId = await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().HomeMembers
+                .Where(item => !item.IsAccountLinked).Select(item => item.Id).SingleAsync();
+        var edited = await Post(owner, $"/Home/Members/Edit/{profileId}", "member-profile", new()
+        {
+            ["Input.Name"] = "Samantha", ["Input.Colour"] = ""
+        });
+        Assert.Equal(HttpStatusCode.Redirect, edited.StatusCode);
+        Assert.Contains("Samantha", await owner.GetStringAsync("/Home/Members"));
+        var zone = await Post(owner, "/Home/Configure", "home-timezone", new() { ["Zone.Id"] = "Europe/London" });
+        Assert.Contains("Timezone saved", await zone.Content.ReadAsStringAsync());
+
+        var invitation = await Post(owner, "/Home", "invite-home", new());
+        var code = Regex.Match(await invitation.Content.ReadAsStringAsync(), "<code>([A-F0-9]{32})</code>").Groups[1].Value;
+        using var member = factory.Client();
+        await Register(member, "member@example.test", "", code);
+        await SignIn(factory, member, "member@example.test");
+        Assert.Contains("Samantha", await member.GetStringAsync("/Home/Members"));
+        var forbiddenEdit = await Post(member, $"/Home/Members/Edit/{profileId}", "member-profile", new() { ["Input.Name"] = "Forbidden" });
+        Assert.DoesNotContain("Save profile", await forbiddenEdit.Content.ReadAsStringAsync());
+        Assert.Contains("Only the owner", await member.GetStringAsync($"/Home/Members/Remove/{profileId}"));
+        await Post(member, $"/Home/Members/Remove/{profileId}", "remove-member", new() { ["Input.Confirmed"] = "true" });
+        Assert.Contains("Samantha", await owner.GetStringAsync("/Home/Members"));
+        Guid memberId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            memberId = await (from link in db.HomeMemberships join user in db.Users on link.UserId equals user.Id
+                              where user.Email == "member@example.test" select link.MemberId).SingleAsync();
+        }
+        var confirmation = await owner.GetStringAsync($"/Home/Members/Remove/{memberId}");
+        Assert.Contains("member@example.test", confirmation);
+        var unconfirmed = await Post(owner, $"/Home/Members/Remove/{memberId}", "remove-member", new());
+        Assert.Contains("Confirm the named member", await unconfirmed.Content.ReadAsStringAsync());
+        Assert.Contains("Family", await member.GetStringAsync("/Home"));
+        var removed = await Post(owner, $"/Home/Members/Remove/{memberId}", "remove-member", new() { ["Input.Confirmed"] = "true" });
+        Assert.Equal(HttpStatusCode.Redirect, removed.StatusCode);
+        Assert.DoesNotContain("Samantha", await member.GetStringAsync("/Home/Members"));
+        Assert.DoesNotContain("Family", await member.GetStringAsync("/Home/Configure"));
+        Assert.Contains("Create a home or join one", await member.GetStringAsync("/Home"));
+        Assert.Equal(HttpStatusCode.OK, (await member.GetAsync("/Account/Manage")).StatusCode);
+        var retire = await Post(owner, $"/Home/Members/Remove/{profileId}", "remove-member", new() { ["Input.Confirmed"] = "true" });
+        Assert.Equal(HttpStatusCode.Redirect, retire.StatusCode);
+        Assert.DoesNotContain("Samantha", await owner.GetStringAsync("/Home/Members"));
+    }
+
+    [Fact]
+    public async Task OwnerCanRevokeCodeAndRegistrationPreservesEnteredValues()
+    {
+        using var factory = new RegistrationFactory();
+        using var owner = factory.Client();
+        await Register(owner, "owner@example.test", "Family", "");
+        await SignIn(factory, owner, "owner@example.test");
+        var generated = await Post(owner, "/Home", "invite-home", new());
+        var code = Regex.Match(await generated.Content.ReadAsStringAsync(), "<code>([A-F0-9]{32})</code>").Groups[1].Value;
+        Guid id;
+        using (var scope = factory.Services.CreateScope())
+            id = await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().HomeInvitations.Select(item => item.Id).SingleAsync();
+        var revoked = await Post(owner, "/Home", "revoke-invitation", new() { ["Revoke.Id"] = id.ToString() });
+        Assert.Contains("Revoked", await revoked.Content.ReadAsStringAsync());
+        using var guest = factory.Client();
+        var invalid = await Register(guest, "guest@example.test", "", code);
+        var html = await invalid.Content.ReadAsStringAsync();
+        Assert.Contains("has been revoked", html);
+        Assert.Contains("guest@example.test", html);
+        Assert.DoesNotContain("Family", html);
+    }
+
+    [Fact]
+    public async Task JoinValidationIsRateLimitedAcrossEntryPoints()
+    {
+        using var factory = new RegistrationFactory();
+        using var client = factory.Client();
+        await Register(client, "owner@example.test", "Home", "");
+        await SignIn(factory, client, "owner@example.test");
+        for (var attempt = 0; attempt < 9; attempt++)
+        {
+            var result = await Register(client, "guest@example.test", "", new string('A', 32));
+            Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        }
+        var rejected = await Register(client, "guest@example.test", "", new string('A', 32));
+        Assert.Equal(HttpStatusCode.TooManyRequests, rejected.StatusCode);
+        Assert.NotNull(rejected.Headers.RetryAfter);
+        // The authenticated-home and external-registration paths use the same client budget.
+        var home = await client.PostAsync("/Home", new FormUrlEncodedContent(new Dictionary<string, string>()));
+        Assert.Equal(HttpStatusCode.TooManyRequests, home.StatusCode);
+        var external = await client.PostAsync("/Account/ExternalLogin", new FormUrlEncodedContent(new Dictionary<string, string>()));
+        Assert.Equal(HttpStatusCode.TooManyRequests, external.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/Account/Register")).StatusCode);
+        using var scope = factory.Services.CreateScope();
+        Assert.Single(await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Users.ToListAsync());
+    }
+
+    private static async Task SignIn(RegistrationFactory factory, HttpClient client, string email)
+    {
+        await factory.Confirm(email);
+        var login = await Post(client, "/Account/Login", "login", new()
+        {
+            ["Input.Email"] = email, ["Input.Password"] = "StrongPassword123!"
+        });
+        Assert.Equal(HttpStatusCode.Redirect, login.StatusCode);
+        Assert.EndsWith("/Home", login.Headers.Location!.OriginalString);
+    }
+
     private static Task<HttpResponseMessage> Register(HttpClient client, string email, string name, string code) =>
         Post(client, "/Account/Register", "register", new()
         {

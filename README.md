@@ -25,6 +25,10 @@ Use vertical slices, grouping code by feature and use case. Web features live at
 
 The home page at `/` lives in `Features/Home/Index.razor` and provides Sign in and Register buttons linking to the existing account pages. Its responsive styling is scoped to the home page. Template demo content has been removed. Identity pages live in `Features/Account` by use case; error/not-found pages remain under `Components`.
 
+## Meals and meal planner
+
+**Meals** (`/Meals`) lets household members add, rename and delete meals by name. **Meal planner** (`/MealPlanner`) holds one shared, repeating Monday–Friday plan with multiple meals per day. Select members on a planned meal only for exceptions; no selections means everyone. Deleting a saved meal warns about affected weekdays and removes its planner assignments. Recipes, ingredients and serving counts are deferred. See [Meals](src/HomeHub.Web/Features/Meals/README.md) for behaviour and verification details.
+
 ## Identity development
 
 Protected home and account settings pages use `Components/Layout/AppLayout.razor`, with a responsive sidebar inspired by [Sidebar with Submenus](https://blazorblueprintui.com/blueprints/sidebars/sidebar-02). It provides collapsible home/account navigation, active links, and an account menu with antiforgery-protected sign-out. On small screens the sidebar starts closed; the header button toggles it and Escape closes it. Guest-accessible routes retain `MainLayout` without a sidebar, even for signed-in visitors. Native disclosure controls and a small `wwwroot/sidebar.js` module support static server-rendered account pages without changing their form lifecycle.

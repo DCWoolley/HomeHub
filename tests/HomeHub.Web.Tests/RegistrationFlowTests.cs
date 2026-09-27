@@ -15,7 +15,7 @@ using Xunit;
 
 namespace HomeHub.Web.Tests;
 
-public sealed class RegistrationFlowTests
+public sealed partial class RegistrationFlowTests
 {
     [Fact]
     public async Task RegistrationCreatesOwnerWhoCanInviteAMember()

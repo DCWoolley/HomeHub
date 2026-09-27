@@ -1,0 +1,2 @@
+.member-choice { display: flex; gap: .7rem; align-items: center; padding: .6rem 0; }
+fieldset { border: 1px solid #dce7e0; border-radius: .5rem; padding: 1rem; margin-bottom: 1rem; }

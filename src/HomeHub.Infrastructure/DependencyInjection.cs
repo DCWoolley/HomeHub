@@ -29,6 +29,8 @@ public static class DependencyInjection
 
         services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
         services.AddSingleton(TimeProvider.System);
+        services.AddScoped<HomeHub.Application.Features.Meals.ManageMeals.IMeals, Meals.MealService>();
+        services.AddScoped<HomeHub.Application.Features.Meals.PlanMeals.IMealPlanner, Meals.MealService>();
         services.AddScoped<HomeHub.Application.Features.Account.Register.IHomeRegistration, Homes.HomeService>();
         services.AddScoped<HomeHub.Application.Features.Homes.ManageHome.IHomeAccess, Homes.HomeService>();
         services.AddScoped<HomeHub.Application.Features.Homes.ManageMembers.IHomeMembers, Homes.HomeService>();

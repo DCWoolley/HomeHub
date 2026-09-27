@@ -181,6 +181,64 @@ namespace HomeHub.Infrastructure.Persistence.Migrations
                     b.ToTable("HomeRooms");
                 });
 
+            modelBuilder.Entity("HomeHub.Domain.Meals.Meal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("HomeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HomeId");
+
+                    b.ToTable("Meals");
+                });
+
+            modelBuilder.Entity("HomeHub.Domain.Meals.PlannedMeal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Day")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("MealId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MealId");
+
+                    b.ToTable("PlannedMeals", t =>
+                        {
+                            t.HasCheckConstraint("CK_PlannedMeals_Weekday", "[Day] >= 1 AND [Day] <= 5");
+                        });
+                });
+
+            modelBuilder.Entity("HomeHub.Domain.Meals.PlannedMealMember", b =>
+                {
+                    b.Property<Guid>("PlannedMealId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("PlannedMealId", "MemberId");
+
+                    b.HasIndex("MemberId");
+
+                    b.ToTable("PlannedMealMember");
+                });
+
             modelBuilder.Entity("HomeHub.Infrastructure.Identity.ApplicationUser", b =>
                 {
                     b.Property<string>("Id")
@@ -467,6 +525,39 @@ namespace HomeHub.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("HomeHub.Domain.Meals.Meal", b =>
+                {
+                    b.HasOne("HomeHub.Domain.Homes.Home", null)
+                        .WithMany()
+                        .HasForeignKey("HomeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HomeHub.Domain.Meals.PlannedMeal", b =>
+                {
+                    b.HasOne("HomeHub.Domain.Meals.Meal", null)
+                        .WithMany()
+                        .HasForeignKey("MealId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HomeHub.Domain.Meals.PlannedMealMember", b =>
+                {
+                    b.HasOne("HomeHub.Domain.Homes.HomeMember", null)
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HomeHub.Domain.Meals.PlannedMeal", null)
+                        .WithMany("Members")
+                        .HasForeignKey("PlannedMealId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -567,6 +658,11 @@ namespace HomeHub.Infrastructure.Persistence.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("HomeHub.Domain.Meals.PlannedMeal", b =>
+                {
+                    b.Navigation("Members");
                 });
 #pragma warning restore 612, 618
         }

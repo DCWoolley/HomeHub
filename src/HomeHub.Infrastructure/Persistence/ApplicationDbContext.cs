@@ -1,5 +1,6 @@
 using HomeHub.Infrastructure.Identity;
 using HomeHub.Domain.Homes;
+using HomeHub.Domain.Meals;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,6 +9,8 @@ namespace HomeHub.Infrastructure.Persistence
 	public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : IdentityDbContext<ApplicationUser>(options)
 	{
 		public DbSet<Home> Homes => Set<Home>();
+		public DbSet<Meal> Meals => Set<Meal>();
+		public DbSet<PlannedMeal> PlannedMeals => Set<PlannedMeal>();
 		public DbSet<HomeFloor> HomeFloors => Set<HomeFloor>();
 		public DbSet<HomeRoom> HomeRooms => Set<HomeRoom>();
 		public DbSet<HomeMembership> HomeMemberships => Set<HomeMembership>();
@@ -17,6 +20,22 @@ namespace HomeHub.Infrastructure.Persistence
 		protected override void OnModelCreating(ModelBuilder builder)
 		{
 			base.OnModelCreating(builder);
+            builder.Entity<Meal>(entity =>
+            {
+                entity.Property(meal => meal.Name).HasMaxLength(100);
+                entity.HasOne<Home>().WithMany().HasForeignKey(meal => meal.HomeId).OnDelete(DeleteBehavior.Cascade);
+            });
+            builder.Entity<PlannedMeal>(entity =>
+            {
+                entity.HasOne<Meal>().WithMany().HasForeignKey(entry => entry.MealId).OnDelete(DeleteBehavior.Cascade);
+                entity.HasMany(entry => entry.Members).WithOne().HasForeignKey(member => member.PlannedMealId).OnDelete(DeleteBehavior.Cascade);
+                entity.ToTable(table => table.HasCheckConstraint("CK_PlannedMeals_Weekday", "[Day] >= 1 AND [Day] <= 5"));
+            });
+            builder.Entity<PlannedMealMember>(entity =>
+            {
+                entity.HasKey(member => new { member.PlannedMealId, member.MemberId });
+                entity.HasOne<HomeMember>().WithMany().HasForeignKey(member => member.MemberId).OnDelete(DeleteBehavior.Restrict);
+            });
 			builder.Entity<HomeFloor>(entity =>
 			{
 				entity.Property(floor => floor.Name).HasMaxLength(100);

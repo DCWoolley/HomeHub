@@ -1,0 +1,47 @@
+@page "/Meals/New"
+@page "/Meals/Edit/{Id:guid}"
+@inject IMeals Meals
+
+<PageTitle>@(Id is null ? "Add meal" : "Edit meal") | HomeHub</PageTitle>
+<AccountCard Title="@(Id is null ? "Add a meal" : "Edit meal")" Description="Just a name for now. Recipes and ingredients can come later.">
+    @if (error is not null) { <p role="alert" class="validation-message">@error</p> }
+    @if (available)
+    {
+        <EditForm Model="Input" method="post" FormName="save-meal" OnValidSubmit="Save">
+            <DataAnnotationsValidator />
+            <ValidationSummary role="alert" />
+            <div class="form-field">
+                <label for="meal-name">Meal name</label>
+                <InputText id="meal-name" class="form-control" @bind-Value="Input.Name" maxlength="100" />
+            </div>
+            <button type="submit">Save meal</button>
+        </EditForm>
+    }
+    <p><a href="Meals">Back to meals</a></p>
+</AccountCard>
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    [SupplyParameterFromForm(FormName = "save-meal")] private MealInput Input { get; set; } = default!;
+    private bool available;
+    private string? error;
+    private string UserId => HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    protected override async Task OnInitializedAsync()
+    {
+        var meals = await Meals.GetMealsAsync(UserId, HttpContext.RequestAborted);
+        var meal = meals?.SingleOrDefault(meal => meal.Id == Id);
+        available = meals is not null && (Id is null || meal is not null);
+        if (!available) error = "This meal is unavailable, or you need to create or join a home.";
+        Input ??= new() { Name = meal?.Name ?? "" };
+    }
+    private async Task Save()
+    {
+        error = await Meals.SaveMealAsync(UserId, Id, Input.Name, HttpContext.RequestAborted);
+        if (error is null) HttpContext.Response.Redirect("/Meals");
+    }
+    public sealed class MealInput
+    {
+        [Required, StringLength(100)] public string Name { get; set; } = "";
+    }
+}

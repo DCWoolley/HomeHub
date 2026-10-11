@@ -16,6 +16,27 @@ Household management, the protected dashboard, and deployment are being implemen
 
 ## Deploy to Unraid over SSH
 
-Deployment setup is retained while Restart is implemented. The completed application will use Docker context `serverone` (`ssh://serverone`), port 5293, the existing SQL Server service, and the named volume `homehub_homehub-data-protection`. Secrets stay in ignored `.env.unraid`; never print resolved Compose environment values. The old HomeHub database/data will be deleted as explicitly requested, after verification and exact target checks. Do not delete Docker volumes.
+Agents have standing authorisation to deploy verified behavior changes. The target is Docker context serverone (ssh://serverone), identifying ServerOne, Linux, and Unraid OS. Keep credentials in ignored .env.unraid and placeholders only in .env.unraid.example. Never print resolved Compose environment values.
 
-Identity and the fresh household schema are configured. Authentication does not require email confirmation; email delivery is not configured. Registration now atomically creates the Identity account and household membership through a create-household or invitation-code choice. External account creation is disabled. Run tests with dotnet test HomeHub.slnx --no-restore -v:m, and check migrations with dotnet ef migrations has-pending-model-changes --project src/HomeHub.Web.
+The application uses the existing SQL Server service and the fresh HomeHub database. The old HomeHub database and data were deleted for Restart, as explicitly requested. Startup applies the fresh EF migrations when Database:ApplyMigrations is enabled. The application login owns HomeHub and has migration rights; it does not need server-wide create-database permission.
+
+Preserve port 5293, container homehub, image homehub:local, and named volume homehub_homehub-data-protection mounted at /home/app/.aspnet/DataProtection-Keys. Never delete Docker volumes. Compose explicitly enables LAN HTTP; other configurations retain HTTPS redirection. The container runs as the non-root app user.
+
+```powershell
+docker context inspect serverone --format '{{json .Endpoints.docker.Host}}'
+docker --context serverone info --format '{{.Name}}|{{.ServerVersion}}|{{.OSType}}|{{.OperatingSystem}}'
+dotnet build HomeHub.slnx
+$env:HOMEHUB_TEST_LOCALDB = '1' # Windows with SQL Server LocalDB
+dotnet test HomeHub.slnx --no-restore -v:m
+dotnet ef migrations has-pending-model-changes --project src/HomeHub.Web
+docker --context serverone compose --env-file .env.unraid config --quiet
+docker --context serverone compose --env-file .env.unraid up --detach --build --wait --wait-timeout 180
+docker --context serverone compose --env-file .env.unraid ps
+./scripts/Test-Deployment.ps1
+```
+
+Liveness is /health/live. Readiness is /health/ready and checks database connectivity and pending migrations. Check both container healthy and readiness Healthy before reporting deployment success.
+
+For a full deployment smoke test, `./scripts/Test-Deployment.ps1 -VerifyRegistration` exercises account creation, invitation joining, login, and authenticated routes with unique synthetic accounts and a synthetic household, then cleans up only those records transactionally. It requires Windows sqlcmd and the configured application SQL login. SQL commands enable quoted identifiers to support filtered indexes.
+
+`scripts/Reset-HomeHubDatabase.ps1` is the guarded one-time legacy reset utility, not an update command. It refuses to run after the InitialRestart migration and checks create-database permission before deleting anything. It targets only the exact HomeHub database. Routine updates preserve all application data.

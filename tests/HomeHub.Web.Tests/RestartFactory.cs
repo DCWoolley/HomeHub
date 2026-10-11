@@ -11,8 +11,10 @@ namespace HomeHub.Web.Tests;
 public sealed class RestartFactory : WebApplicationFactory<Program>
 {
     private readonly SqliteConnection connection = new("Data Source=:memory:");
-    public RestartFactory()
+    private readonly string? sqlServerConnection;
+    public RestartFactory(string? sqlServerConnection = null)
     {
+        this.sqlServerConnection = sqlServerConnection;
         connection.Open();
     }
 
@@ -26,7 +28,7 @@ public sealed class RestartFactory : WebApplicationFactory<Program>
             services.RemoveAll<DbContextOptions<ApplicationDbContext>>();
             services.RemoveAll<IDbContextFactory<ApplicationDbContext>>();
             services.RemoveAll<Microsoft.EntityFrameworkCore.Infrastructure.IDbContextOptionsConfiguration<ApplicationDbContext>>();
-            services.AddDbContextFactory<ApplicationDbContext>(options => options.UseSqlite(connection), ServiceLifetime.Scoped);
+            services.AddDbContextFactory<ApplicationDbContext>(options => { if (sqlServerConnection is null) options.UseSqlite(connection); else options.UseSqlServer(sqlServerConnection); }, ServiceLifetime.Scoped);
         });
     }
 

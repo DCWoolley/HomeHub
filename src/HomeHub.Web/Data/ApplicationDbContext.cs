@@ -1,4 +1,5 @@
 using HomeHub.Web.Modules.Households;
+using HomeHub.Web.Modules.MealPlanner;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,10 +11,26 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<HouseholdMember> HouseholdMembers => Set<HouseholdMember>();
     public DbSet<HouseholdMembership> HouseholdMemberships => Set<HouseholdMembership>();
     public DbSet<HouseholdInvitation> HouseholdInvitations => Set<HouseholdInvitation>();
+    public DbSet<Meal> Meals => Set<Meal>();
+    public DbSet<PlannedMeal> PlannedMeals => Set<PlannedMeal>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+        builder.Entity<Meal>(entity =>
+        {
+            entity.Property(x => x.Name).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.NormalizedName).HasMaxLength(100).IsRequired();
+            entity.HasIndex(x => new { x.HouseholdId, x.NormalizedName }).IsUnique();
+            entity.HasAlternateKey(x => new { x.HouseholdId, x.Id });
+            entity.HasOne<Household>().WithMany().HasForeignKey(x => x.HouseholdId).OnDelete(DeleteBehavior.Restrict);
+        });
+        builder.Entity<PlannedMeal>(entity =>
+        {
+            entity.HasIndex(x => new { x.HouseholdId, x.Date, x.Time, x.MealId }).IsUnique();
+            entity.HasOne(x => x.Meal).WithMany().HasForeignKey(x => new { x.HouseholdId, x.MealId })
+                .HasPrincipalKey(x => new { x.HouseholdId, x.Id }).OnDelete(DeleteBehavior.Cascade);
+        });
         builder.Entity<Household>(entity =>
         {
             entity.Property(x => x.Name).HasMaxLength(100).IsRequired();

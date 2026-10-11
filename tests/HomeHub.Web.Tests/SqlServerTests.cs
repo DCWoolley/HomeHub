@@ -13,6 +13,37 @@ namespace HomeHub.Web.Tests;
 public sealed class SqlServerTests
 {
     [LocalDbFact]
+    public async Task ConcurrentMealCreationPreservesUniqueNames()
+    {
+        var name = "HomeHub_RestartTest_" + Guid.NewGuid().ToString("N");
+        var connection = $"Server=(localdb)\\MSSQLLocalDB;Database={name};Trusted_Connection=True;MultipleActiveResultSets=True";
+        try
+        {
+            using var app = new RestartFactory(connection);
+            await using (var scope = app.Services.CreateAsyncScope())
+                await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.MigrateAsync();
+            var owner = await app.Services.GetRequiredService<RegisterAccount>().RunAsync(RegistrationTests.Request());
+            var actor = MembershipTests.Actor(owner.UserId!);
+            var meals = app.Services.GetRequiredService<HomeHub.Web.Modules.MealPlanner.ManageMeals.ManageMeals>();
+            async Task<bool> Create(string mealName)
+            {
+                try { await meals.SaveAsync(actor, new() { Name = mealName }); return true; }
+                catch (HouseholdRuleException) { return false; }
+            }
+            var results = await Task.WhenAll(Create("Pasta"), Create(" pasta "));
+            Assert.Single(results, x => x);
+            Assert.Single(await meals.ListAsync(actor));
+        }
+        finally
+        {
+            await using var db = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlServer(connection).Options);
+            if (db.Database.GetDbConnection().Database != name || !name.StartsWith("HomeHub_RestartTest_"))
+                throw new InvalidOperationException("Unsafe test database cleanup.");
+            await db.Database.EnsureDeletedAsync();
+        }
+    }
+
+    [LocalDbFact]
     public async Task FreshMigrationsAndConcurrentMembershipChangesPreserveInvariants()
     {
         var name = "HomeHub_RestartTest_" + Guid.NewGuid().ToString("N");

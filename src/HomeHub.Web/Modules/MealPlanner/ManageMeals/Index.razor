@@ -1,0 +1,66 @@
+@page "/Meals"
+@attribute [Authorize]
+@layout AppLayout
+@using HomeHub.Web.Modules.Households
+@inject ManageMeals UseCase
+@inject AuthenticationStateProvider Auth
+<PageTitle>Meal list</PageTitle>
+<h1>Your meals</h1>
+<p>Manage the meals shared by your household. Each meal needs just a name.</p>
+@if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
+<EditForm Model="input" OnValidSubmit="Save" FormName="meal">
+    <DataAnnotationsValidator /><ValidationSummary />
+    <label for="meal-name">@(input.Id is null ? "New meal name" : "Edit meal name")</label>
+    <InputText id="meal-name" @bind-Value="input.Name" maxlength="100" disabled="@busy" />
+    <div class="actions"><BbButton Type="ButtonType.Submit" Disabled="busy">Save meal</BbButton>
+    @if (input.Id is not null) { <BbButton OnClick="Cancel" Disabled="busy">Cancel edit</BbButton> }</div>
+</EditForm>
+@if (meals.Count == 0) { <p>No meals yet. Add your first meal above.</p> }
+@foreach (var meal in meals) {
+    <div class="card" @key="meal.Id"><strong>@meal.Name</strong>
+        <div class="actions"><BbButton OnClick="() => Edit(meal)" Disabled="busy">Edit</BbButton>
+        <BbButton OnClick="() => Preview(meal.Id)" Disabled="busy">Delete</BbButton></div>
+    </div>
+}
+@if (pending is not null) {
+    <section class="alert" aria-label="Confirm meal deletion">
+        <p>Delete <strong>@pending.Name</strong> from your meal list?</p>
+        @if (pending.PlannedOccurrences > 0) {
+            <p role="alert">This meal is used @pending.PlannedOccurrences time(s) in your plans. Deleting it will also remove it from every plan, including past and future weeks.</p>
+        }
+        <div class="actions"><BbButton OnClick="Delete" Disabled="busy">Confirm deletion</BbButton>
+        <BbButton OnClick="() => pending = null" Disabled="busy">Cancel deletion</BbButton></div>
+    </section>
+}
+@code {
+    private ManageMeals.Request input = new();
+    private IReadOnlyList<ManageMeals.Item> meals = [];
+    private ManageMeals.Deletion? pending;
+    private string? error;
+    private bool busy;
+    protected override async Task OnInitializedAsync() => await Load();
+    private async Task Load() => await Run(async () => meals = await UseCase.ListAsync((await Auth.GetAuthenticationStateAsync()).User));
+    private void Edit(ManageMeals.Item meal) { input = new() { Id = meal.Id, Name = meal.Name }; pending = null; error = null; }
+    private void Cancel() => input = new();
+    private async Task Preview(Guid id) => await Run(async () => pending = await UseCase.PreviewDeleteAsync((await Auth.GetAuthenticationStateAsync()).User, id));
+    private async Task Save() => await Run(async () => {
+        await UseCase.SaveAsync((await Auth.GetAuthenticationStateAsync()).User, input);
+        Cancel(); pending = null;
+        meals = await UseCase.ListAsync((await Auth.GetAuthenticationStateAsync()).User);
+    });
+    private async Task Delete() => await Run(async () => {
+        if (pending is null) return;
+        var actor = (await Auth.GetAuthenticationStateAsync()).User;
+        var confirmed = pending;
+        pending = await UseCase.PreviewDeleteAsync(actor, confirmed.Id);
+        await UseCase.DeleteAsync(actor, confirmed.Id, confirmed.PlannedOccurrences > 0);
+        pending = null; Cancel(); meals = await UseCase.ListAsync(actor);
+    });
+    private async Task Run(Func<Task> action)
+    {
+        if (busy) return; busy = true; error = null;
+        try { await action(); }
+        catch (HouseholdRuleException ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+}

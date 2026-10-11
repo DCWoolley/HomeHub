@@ -191,6 +191,61 @@ namespace HomeHub.Web.Data.Migrations
                     b.ToTable("HouseholdMemberships");
                 });
 
+            modelBuilder.Entity("HomeHub.Web.Modules.MealPlanner.Meal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("HouseholdId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HouseholdId", "NormalizedName")
+                        .IsUnique();
+
+                    b.ToTable("Meals");
+                });
+
+            modelBuilder.Entity("HomeHub.Web.Modules.MealPlanner.PlannedMeal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("HouseholdId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("MealId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Time")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HouseholdId", "MealId");
+
+                    b.HasIndex("HouseholdId", "Date", "Time", "MealId")
+                        .IsUnique();
+
+                    b.ToTable("PlannedMeals");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
                 {
                     b.Property<string>("Id")
@@ -377,6 +432,27 @@ namespace HomeHub.Web.Data.Migrations
                         .HasPrincipalKey("HouseholdId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("HomeHub.Web.Modules.MealPlanner.Meal", b =>
+                {
+                    b.HasOne("HomeHub.Web.Modules.Households.Household", null)
+                        .WithMany()
+                        .HasForeignKey("HouseholdId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HomeHub.Web.Modules.MealPlanner.PlannedMeal", b =>
+                {
+                    b.HasOne("HomeHub.Web.Modules.MealPlanner.Meal", "Meal")
+                        .WithMany()
+                        .HasForeignKey("HouseholdId", "MealId")
+                        .HasPrincipalKey("HouseholdId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Meal");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

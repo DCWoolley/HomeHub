@@ -53,6 +53,7 @@ builder.Services.AddScoped<HomeHub.Web.Modules.Households.LeaveHousehold.LeaveHo
 builder.Services.AddScoped<HomeHub.Web.Modules.Account.Manage.DeletePersonalData.DeleteAccount>();
 builder.Services.AddScoped<HomeHub.Web.Modules.Households.GetHousehold.GetHousehold>();
 builder.Services.AddScoped<HomeHub.Web.Modules.Households.Onboarding.Onboarding>();
+builder.Services.AddScoped<HomeHub.Web.Modules.MealPlanner.ManageMeals.ManageMeals>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
 var keysPath = builder.Configuration["DataProtection:KeysPath"];
@@ -88,7 +89,7 @@ app.Use(async (context, next) =>
 {
     var path = context.Request.Path;
     var householdRoute = path.StartsWithSegments("/Household") && !path.StartsWithSegments("/Household/Onboarding");
-    if (context.User.Identity?.IsAuthenticated == true && (householdRoute || path.StartsWithSegments("/Dashboard")))
+    if (context.User.Identity?.IsAuthenticated == true && (householdRoute || path.StartsWithSegments("/Dashboard") || path.StartsWithSegments("/Meals") || path.StartsWithSegments("/MealPlanner")))
     {
         var current = context.RequestServices.GetRequiredService<HomeHub.Web.Modules.Households.GetHousehold.GetHousehold>();
         if (await current.RunAsync(context.User, context.RequestAborted) is null)

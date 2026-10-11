@@ -17,3 +17,5 @@ Household registration, household management, protected dashboard, deployment, a
 ## Deploy to Unraid over SSH
 
 Deployment setup is retained while Restart is implemented. The completed application will use Docker context `serverone` (`ssh://serverone`), port 5293, the existing SQL Server service, and the named volume `homehub_homehub-data-protection`. Secrets stay in ignored `.env.unraid`; never print resolved Compose environment values. The old HomeHub database/data will be deleted as explicitly requested, after verification and exact target checks. Do not delete Docker volumes.
+
+Identity and the fresh household schema are configured. Authentication does not require email confirmation; email delivery is not configured. Standalone registration and external account creation are disabled pending household-aware registration. Run tests with dotnet test HomeHub.slnx --no-restore -v:m, and check migrations with dotnet ef migrations has-pending-model-changes --project src/HomeHub.Web.

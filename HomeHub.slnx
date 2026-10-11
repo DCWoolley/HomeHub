@@ -2,4 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/HomeHub.Web/HomeHub.Web.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/HomeHub.Web.Tests/HomeHub.Web.Tests.csproj" />
+  </Folder>
 </Solution>

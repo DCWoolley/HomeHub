@@ -1,12 +1,12 @@
-using System;
+﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace HomeHub.Web.Migrations
+namespace HomeHub.Web.Data.Migrations
 {
     /// <inheritdoc />
-    public partial class CreateIdentitySchema : Migration
+    public partial class InitialRestart : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -48,6 +48,19 @@ namespace HomeHub.Web.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_AspNetUsers", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Households",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Version = table.Column<int>(type: "int", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Households", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -175,6 +188,75 @@ namespace HomeHub.Web.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "HouseholdInvitations",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    HouseholdId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    CodeHash = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false),
+                    ExpiresAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UsedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    RevokedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_HouseholdInvitations", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_HouseholdInvitations_Households_HouseholdId",
+                        column: x => x.HouseholdId,
+                        principalTable: "Households",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "HouseholdMembers",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    HouseholdId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    IsRetired = table.Column<bool>(type: "bit", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_HouseholdMembers", x => x.Id);
+                    table.UniqueConstraint("AK_HouseholdMembers_HouseholdId_Id", x => new { x.HouseholdId, x.Id });
+                    table.ForeignKey(
+                        name: "FK_HouseholdMembers_Households_HouseholdId",
+                        column: x => x.HouseholdId,
+                        principalTable: "Households",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "HouseholdMemberships",
+                columns: table => new
+                {
+                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    HouseholdId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    MemberId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    IsOwner = table.Column<bool>(type: "bit", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_HouseholdMemberships", x => x.UserId);
+                    table.ForeignKey(
+                        name: "FK_HouseholdMemberships_AspNetUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_HouseholdMemberships_HouseholdMembers_HouseholdId_MemberId",
+                        columns: x => new { x.HouseholdId, x.MemberId },
+                        principalTable: "HouseholdMembers",
+                        principalColumns: new[] { "HouseholdId", "Id" },
+                        onDelete: ReferentialAction.Restrict);
+                });
+
             migrationBuilder.CreateIndex(
                 name: "IX_AspNetRoleClaims_RoleId",
                 table: "AspNetRoleClaims",
@@ -218,6 +300,35 @@ namespace HomeHub.Web.Migrations
                 column: "NormalizedUserName",
                 unique: true,
                 filter: "[NormalizedUserName] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_HouseholdInvitations_CodeHash",
+                table: "HouseholdInvitations",
+                column: "CodeHash",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_HouseholdInvitations_HouseholdId",
+                table: "HouseholdInvitations",
+                column: "HouseholdId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_HouseholdMemberships_HouseholdId",
+                table: "HouseholdMemberships",
+                column: "HouseholdId",
+                unique: true,
+                filter: "[IsOwner] = 1");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_HouseholdMemberships_HouseholdId_MemberId",
+                table: "HouseholdMemberships",
+                columns: new[] { "HouseholdId", "MemberId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_HouseholdMemberships_MemberId",
+                table: "HouseholdMemberships",
+                column: "MemberId",
+                unique: true);
         }
 
         /// <inheritdoc />
@@ -242,10 +353,22 @@ namespace HomeHub.Web.Migrations
                 name: "AspNetUserTokens");
 
             migrationBuilder.DropTable(
+                name: "HouseholdInvitations");
+
+            migrationBuilder.DropTable(
+                name: "HouseholdMemberships");
+
+            migrationBuilder.DropTable(
                 name: "AspNetRoles");
 
             migrationBuilder.DropTable(
                 name: "AspNetUsers");
+
+            migrationBuilder.DropTable(
+                name: "HouseholdMembers");
+
+            migrationBuilder.DropTable(
+                name: "Households");
         }
     }
 }

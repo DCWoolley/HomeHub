@@ -7,9 +7,11 @@
 @if (household is not null) {
     <p class="eyebrow">@household.Name</p><h1>Welcome home, @household.MemberName</h1>
     <p>Your family's shared space starts here.</p>
-    <BbCard><BbCardHeader><BbCardTitle>Your household is ready</BbCardTitle>
-    <BbCardDescription>Bring your family together and keep your member profiles up to date.</BbCardDescription></BbCardHeader>
-    <BbCardContent><a href="/Household">Manage your household</a></BbCardContent></BbCard>
+    <div class="dashboard-card">
+        <BbCard><BbCardHeader><BbCardTitle>Your household is ready</BbCardTitle>
+        <BbCardDescription>Bring your family together and keep your member profiles up to date.</BbCardDescription></BbCardHeader>
+        <BbCardContent><a href="/Household">Manage your household</a></BbCardContent></BbCard>
+    </div>
 }
 @code {
     private HomeHub.Web.Modules.Households.GetHousehold.GetHousehold.Response? household;

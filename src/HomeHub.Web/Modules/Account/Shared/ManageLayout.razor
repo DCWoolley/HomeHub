@@ -2,6 +2,8 @@
 @layout MainLayout
 <div class="actions"><a href="/Dashboard">Dashboard</a><a href="/Household">Your household</a></div>
 <h1>Manage your account</h1>
-<ManageNavMenu />
+<ResponsiveMenu Id="account-menu" Label="Account menu" Class="account-menu">
+    <ManageNavMenu />
+</ResponsiveMenu>
 <section class="card">@Body</section>
 <form action="/Account/Logout" method="post"><AntiforgeryToken /><input type="hidden" name="returnUrl" value="" /><button type="submit">Sign out</button></form>

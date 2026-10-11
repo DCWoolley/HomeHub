@@ -1,0 +1,20 @@
+@* Native disclosure also works on static SSR account pages and before Blazor connects. *@
+<details class="responsive-menu @Class" data-responsive-menu open>
+    <summary class="menu-toggle" aria-controls="@Id">
+        <svg class="menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+        <span>@Label</span>
+        <svg class="menu-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m6 9 6 6 6-6" />
+        </svg>
+    </summary>
+    <div id="@Id" class="menu-panel">@ChildContent</div>
+</details>
+
+@code {
+    [Parameter, EditorRequired] public string Id { get; set; } = "";
+    [Parameter] public string Label { get; set; } = "Menu";
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

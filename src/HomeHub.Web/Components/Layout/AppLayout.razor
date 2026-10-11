@@ -6,17 +6,19 @@
 <header class="site-header"><a class="brand" href="/Dashboard">HomeHub<span>Family life, organised.</span></a></header>
 @if (household is not null) {
     <div class="app-shell">
-        <aside class="sidebar" id="app-sidebar">
-            <p class="eyebrow">@household.Name</p>
-            <nav aria-label="Main navigation">
-                <NavLink href="/Dashboard">Dashboard</NavLink>
-                <NavLink href="/Household" Match="NavLinkMatch.All">Your household</NavLink>
-                <NavLink href="/Household/Members">Member profiles</NavLink>
-                <NavLink href="/Household/Accounts">Account members</NavLink>
-                @if (household.IsOwner) { <NavLink href="/Household/Invitations">Invitations</NavLink><NavLink href="/Household/Ownership">Ownership</NavLink> }
-                <NavLink href="/Account/Manage">Account settings</NavLink>
-            </nav>
-            <form action="/Account/Logout" method="post"><AntiforgeryToken /><input type="hidden" name="returnUrl" value="" /><button type="submit">Sign out</button></form>
+        <aside class="sidebar" aria-label="Household navigation">
+            <ResponsiveMenu Id="app-sidebar" Class="household-menu">
+                <p class="eyebrow">@household.Name</p>
+                <nav aria-label="Main navigation">
+                    <NavLink href="/Dashboard">Dashboard</NavLink>
+                    <NavLink href="/Household" Match="NavLinkMatch.All">Your household</NavLink>
+                    <NavLink href="/Household/Members">Member profiles</NavLink>
+                    <NavLink href="/Household/Accounts">Account members</NavLink>
+                    @if (household.IsOwner) { <NavLink href="/Household/Invitations">Invitations</NavLink><NavLink href="/Household/Ownership">Ownership</NavLink> }
+                    <NavLink href="/Account/Manage">Account settings</NavLink>
+                </nav>
+                <form action="/Account/Logout" method="post"><AntiforgeryToken /><input type="hidden" name="returnUrl" value="" /><button type="submit">Sign out</button></form>
+            </ResponsiveMenu>
         </aside>
         <main class="app-content">@Body</main>
     </div>

@@ -9,6 +9,7 @@ These instructions apply to the entire repository.
 - Keep a use case's request, validation, handler, and response in one C# file where needed. Razor UI may be separate in that folder. UI shared by a module belongs within that module's Shared folder.
 - Modules may have shared entities and technical integration at module level. `Data` owns shared EF context and migrations. Identity framework adapters live in Modules/Account.
 - Components is reserved for routing, layouts, error/not-found pages, and genuinely reusable UI.
+- Use the shared ResponsiveMenu native disclosure for household and account navigation. Keep it usable with static SSR; wwwroot/navigation.js supplies viewport defaults, mobile link closing, and Escape focus handling across interactive navigation.
 - Prefer small cohesive types, direct EF use in use cases, asynchronous I/O, cancellation, and DI. No mediator, generic repositories, or speculative abstractions.
 - Razor imports are folder-scoped; project-level _Imports.razor applies to both Components and Modules.
 - Account forms use static SSR for cookies and antiforgery. Email delivery is not configured: never claim a no-op email was sent or expose confirmation tokens. Other pages use Interactive Server. Keep Blueprint overlays within an interactive provider boundary.

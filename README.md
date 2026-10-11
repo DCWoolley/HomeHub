@@ -11,6 +11,8 @@ HomeHub helps families organise home and family life. The [Restart project](http
 - Everyone with active household access can manage profiles without logins, such as children. Removing a profile retires it while preserving its stable ID.
 - Removing an account member or leaving retires its profile and immediately revokes access while preserving the account. That account can sign in to create/join a household or manage account settings.
 - An owner must transfer ownership to another active account member before leaving. Account deletion requires leaving first.
+- Household navigation collapses to a compact menu rail on desktop and starts closed on screens up to 760px. On mobile, choosing a link closes the menu. Native disclosure controls support keyboard use and static SSR account settings; Escape closes an open menu and returns focus to its toggle.
+- The shared theme uses saturated violet with teal, pink, and amber accents, including Blueprint components.
 - The dashboard is a shell for future modules. No meals, cleaning schedules, budget, calendar, floors, or rooms are implemented.
 
 Email confirmation is not required. Email delivery is not configured; email changes and password recovery by email are explicitly unavailable. The UI does not claim to send messages. Passkey/external-provider template adapters remain available for future configuration but are not offered in the initial login/navigation; passkeys require HTTPS.

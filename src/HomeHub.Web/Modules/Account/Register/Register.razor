@@ -1,4 +1,44 @@
 @page "/Account/Register"
-<PageTitle>Register</PageTitle>
-<h1>Register</h1>
-<p>Household registration is being established. New accounts must create or join a household.</p>
+@using HomeHub.Web.Modules.Households
+@using Microsoft.AspNetCore.Identity
+@inject RegisterAccount Registration
+@inject UserManager<ApplicationUser> Users
+@inject SignInManager<ApplicationUser> SignIn
+@inject IdentityRedirectManager Redirect
+<PageTitle>Create your account</PageTitle>
+<h1>Welcome to HomeHub</h1>
+<p>Create your household or join your family with an invitation code.</p>
+@if (errors.Length > 0) { <div class="alert alert-danger" role="alert">@string.Join(" ", errors)</div> }
+<EditForm Model="Input" method="post" OnValidSubmit="Submit" FormName="register">
+    <DataAnnotationsValidator /><ValidationSummary />
+    <label for="name">Your name</label><InputText id="name" @bind-Value="Input.Name" autocomplete="name" />
+    <label for="email">Email</label><InputText id="email" @bind-Value="Input.Email" autocomplete="username" />
+    <label for="password">Password</label><InputText id="password" type="password" @bind-Value="Input.Password" autocomplete="new-password" />
+    <p>At least eight characters, including uppercase, lowercase, a number and a symbol.</p>
+    <label for="confirm">Confirm password</label><InputText id="confirm" type="password" @bind-Value="Input.ConfirmPassword" autocomplete="new-password" />
+    <label for="choice">Your household</label>
+    <InputSelect id="choice" @bind-Value="Input.Choice"><option value="Create">Create a new household</option><option value="Join">Join with an invitation code</option></InputSelect>
+    <p>Complete the field for your choice.</p>
+    <label for="household">New household name</label><InputText id="household" @bind-Value="Input.HouseholdName" />
+    <label for="code">Invitation code</label><InputText id="code" @bind-Value="Input.InvitationCode" autocomplete="off" />
+    <div class="actions"><button type="submit">Create account</button><a href="/Account/Login">Already have an account?</a></div>
+</EditForm>
+@code {
+    [SupplyParameterFromForm] private RegisterAccount.Request Input { get; set; } = default!;
+    protected override void OnInitialized() => Input ??= new();
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    private string[] errors = [];
+    private async Task Submit()
+    {
+        if (HttpContext.User.Identity?.IsAuthenticated == true)
+        {
+            errors = ["Sign out before registering another account."];
+            return;
+        }
+        var result = await Registration.RunAsync(Input, HttpContext.RequestAborted);
+        if (!result.Succeeded) { errors = result.Errors.ToArray(); return; }
+        var user = await Users.FindByIdAsync(result.UserId!);
+        await SignIn.SignInAsync(user!, false);
+        Redirect.RedirectTo("/Household");
+    }
+}

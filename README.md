@@ -12,10 +12,10 @@ Identity forms use static server rendering for authentication cookies. Ordinary 
 
 Install the .NET 10 SDK. Build with `dotnet build HomeHub.slnx` and run with `dotnet run --project src/HomeHub.Web`. The development connection uses SQL Server LocalDB; override ConnectionStrings:DefaultConnection with user secrets or environment configuration for another SQL Server.
 
-Household registration, household management, protected dashboard, deployment, and focused tests are being implemented in the remaining Restart issues. Do not deploy this intermediate foundation to the existing database.
+Household management, the protected dashboard, and deployment are being implemented in the remaining Restart issues. Isolated tests cover persistence, registration, rollback, single-use redemption, SSR cookies, and antiforgery. Do not deploy this intermediate foundation to the existing database.
 
 ## Deploy to Unraid over SSH
 
 Deployment setup is retained while Restart is implemented. The completed application will use Docker context `serverone` (`ssh://serverone`), port 5293, the existing SQL Server service, and the named volume `homehub_homehub-data-protection`. Secrets stay in ignored `.env.unraid`; never print resolved Compose environment values. The old HomeHub database/data will be deleted as explicitly requested, after verification and exact target checks. Do not delete Docker volumes.
 
-Identity and the fresh household schema are configured. Authentication does not require email confirmation; email delivery is not configured. Standalone registration and external account creation are disabled pending household-aware registration. Run tests with dotnet test HomeHub.slnx --no-restore -v:m, and check migrations with dotnet ef migrations has-pending-model-changes --project src/HomeHub.Web.
+Identity and the fresh household schema are configured. Authentication does not require email confirmation; email delivery is not configured. Registration now atomically creates the Identity account and household membership through a create-household or invitation-code choice. External account creation is disabled. Run tests with dotnet test HomeHub.slnx --no-restore -v:m, and check migrations with dotnet ef migrations has-pending-model-changes --project src/HomeHub.Web.

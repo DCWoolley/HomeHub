@@ -35,6 +35,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {
         options.SignIn.RequireConfirmedAccount = false;
         options.User.RequireUniqueEmail = true;
+        options.Password.RequiredLength = 8;
         options.Stores.SchemaVersion = IdentitySchemaVersions.Version3;
     })
     .AddEntityFrameworkStores<ApplicationDbContext>()
@@ -43,6 +44,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
+builder.Services.AddScoped<HomeHub.Web.Modules.Account.Register.RegisterAccount>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
 var keysPath = builder.Configuration["DataProtection:KeysPath"];

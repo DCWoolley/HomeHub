@@ -6,6 +6,12 @@ Assert-Condition ((Invoke-RestMethod "$BaseUri/health/ready") -eq 'Healthy') 'Re
 foreach ($path in @('/', '/Account/Login', '/Account/Register')) {
     Assert-Condition ((Invoke-WebRequest "$BaseUri$path").StatusCode -eq 200) "Public route failed: $path"
 }
+$loginHtml = (Invoke-WebRequest "$BaseUri/Account/Login").Content
+$bootstrap = [regex]::Match($loginHtml, '<script[^>]*src="([^"]*_framework/blazor\.web[^"/]*\.js)"')
+Assert-Condition $bootstrap.Success 'Blazor bootstrap script reference missing.'
+$bootstrapUri = [Uri]::new([Uri]($BaseUri.TrimEnd('/') + '/'), [Net.WebUtility]::HtmlDecode($bootstrap.Groups[1].Value))
+$bootstrapResponse = Invoke-WebRequest $bootstrapUri
+Assert-Condition ($bootstrapResponse.StatusCode -eq 200 -and $bootstrapResponse.Headers['Content-Type'] -match '(javascript|ecmascript)') 'Blazor bootstrap script is not served as JavaScript.'
 if (-not $VerifyRegistration) { Write-Output 'Deployment health and public routes verified.'; return }
 
 $runId = [Guid]::NewGuid().ToString('N')
@@ -50,7 +56,11 @@ try {
     }
     Assert-Condition ($joined.Content -match [regex]::Escape($householdName)) 'Invitation registration failed.'
     foreach ($path in @('/Dashboard','/Meals','/MealPlanner','/Household','/Household/Members','/Household/Accounts','/Household/Invitations','/Household/Ownership','/Household/Leave','/Account/Manage')) {
-        Assert-Condition ((Invoke-WebRequest "$BaseUri$path" -WebSession $ownerSession).StatusCode -eq 200) "Authenticated route failed: $path"
+        $page = Invoke-WebRequest "$BaseUri$path" -WebSession $ownerSession
+        Assert-Condition ($page.StatusCode -eq 200) "Authenticated route failed: $path"
+        if ($path -in @('/Meals', '/MealPlanner')) {
+            Assert-Condition ($page.Content -match '<!--Blazor:\{"type":"server"') "Interactive server marker missing: $path"
+        }
     }
     $loginSession = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
     $login = Submit-Form $loginSession '/Account/Login' 'login' @{ 'Input.Email'=$ownerEmail; 'Input.Password'=$testPassword; 'Input.RememberMe'='false' }

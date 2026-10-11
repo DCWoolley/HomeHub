@@ -4,6 +4,7 @@ COPY src/HomeHub.Web/HomeHub.Web.csproj src/HomeHub.Web/
 RUN dotnet restore src/HomeHub.Web/HomeHub.Web.csproj
 COPY src/ src/
 RUN dotnet publish src/HomeHub.Web/HomeHub.Web.csproj -c Release --no-restore -o /app/publish /p:UseAppHost=false
+RUN test -s /app/publish/wwwroot/_framework/blazor.web.js
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS runtime
 WORKDIR /app

@@ -78,6 +78,8 @@ Agents have standing authorisation to deploy verified behavior changes. The targ
 
 The application uses the existing SQL Server service and the fresh HomeHub database. The old HomeHub database and data were deleted for Restart, as explicitly requested. Startup applies the fresh EF migrations when Database:ApplyMigrations is enabled. The application login owns HomeHub and has migration rights; it does not need server-wide create-database permission.
 
+The project explicitly requires ASP.NET web assets so Docker's project-only restore includes the Blazor runtime before Razor files are copied. The image build checks that `blazor.web.js` is published, and the deployment smoke test verifies the bootstrap URL returns JavaScript and authenticated meal pages contain Interactive Server markers.
+
 Preserve port 5293, container homehub, image homehub:local, and named volume homehub_homehub-data-protection mounted at /home/app/.aspnet/DataProtection-Keys. Never delete Docker volumes. Compose explicitly enables LAN HTTP; other configurations retain HTTPS redirection. The container runs as the non-root app user.
 
 ```powershell

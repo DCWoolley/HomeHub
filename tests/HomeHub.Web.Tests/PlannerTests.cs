@@ -80,10 +80,13 @@ public sealed class PlannerTests
         var week = PlanWeek.Monday(DateOnly.FromDateTime(DateTime.Today));
         await app.Services.GetRequiredService<PlanWeek>().SetAsync(actor, week, MealTime.Dinner, meal);
         var html = await browser.GetStringAsync("/MealPlanner");
+        Assert.Contains("<!--Blazor:{\"type\":\"server\"", html);
         foreach (var day in new[] { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" }) Assert.Contains(day, html);
         Assert.Contains("Pasta &amp; salad", html);
         Assert.Contains("Breakfast", html); Assert.Contains("Lunch", html); Assert.Contains("Dinner", html);
-        Assert.Contains("Pasta &amp; salad", await browser.GetStringAsync("/Meals"));
+        var mealsHtml = await browser.GetStringAsync("/Meals");
+        Assert.Contains("Pasta &amp; salad", mealsHtml);
+        Assert.Contains("<!--Blazor:{\"type\":\"server\"", mealsHtml);
         var member = (await app.Services.GetRequiredService<ManageAccountMembers>().ListAsync(actor)).Single(x => !x.IsOwner);
         await app.Services.GetRequiredService<ManageAccountMembers>().RemoveAsync(actor, member.UserId);
         foreach (var route in new[] { "/Meals", "/MealPlanner" })

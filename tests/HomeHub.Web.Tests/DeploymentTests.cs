@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.RegularExpressions;
 using HomeHub.Web.Data;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
@@ -10,6 +11,20 @@ namespace HomeHub.Web.Tests;
 
 public sealed class DeploymentTests
 {
+    [Fact]
+    public async Task RenderedBootstrapScriptIsServedAsJavaScript()
+    {
+        using var app = new UnavailableFactory();
+        using var browser = app.CreateClient(new() { BaseAddress = new Uri("http://localhost") });
+        var html = await browser.GetStringAsync("/Account/Login");
+        var match = Regex.Match(html, "<script[^>]*src=\"([^\"]*_framework/blazor\\.web[^\"/]*\\.js)\"");
+        Assert.True(match.Success, "Blazor bootstrap script reference missing.");
+        var script = await browser.GetAsync(WebUtility.HtmlDecode(match.Groups[1].Value));
+        Assert.Equal(HttpStatusCode.OK, script.StatusCode);
+        Assert.Contains("javascript", script.Content.Headers.ContentType!.MediaType!);
+        Assert.True((await script.Content.ReadAsStringAsync()).Length > 1000);
+    }
+
     [Fact]
     public async Task HealthAndProtectedRoutesWorkWithUnavailableDatabase()
     {
@@ -43,6 +58,8 @@ public sealed class DeploymentTests
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseEnvironment("Production");
+            // TestServer runs from build output, so load the development asset manifest instead of a publish directory.
+            builder.UseStaticWebAssets();
             builder.UseSetting("Database:ApplyMigrations", "false");
             builder.UseSetting("Deployment:UseHttpsRedirection", "false");
             builder.UseSetting("ConnectionStrings:DefaultConnection", "Server=tcp:127.0.0.1,1;Database=Unavailable;User Id=test;Password=test;Connect Timeout=1;ConnectRetryCount=0");

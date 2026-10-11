@@ -11,6 +11,7 @@
 <h1>Meal planner</h1>
 <p>Plan breakfast, lunch, and dinner together. Add as many meals as you need to each slot.</p>
 <p><a href="/Meals">Manage your meal list</a></p>
+<fieldset class="meal-controls" disabled="@(!interactiveReady)" aria-label="Weekly meal planning">
 @if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
 @if (message is not null) { <p class="alert" role="status">@message</p> }
 <div class="actions week-navigation">
@@ -62,7 +63,9 @@
     </section>
 }
 </div>
+</fieldset>
 @code {
+    private bool interactiveReady;
     private DateOnly week = PlanWeek.Monday(DateOnly.FromDateTime(DateTime.Today));
     private IReadOnlyList<PlanWeek.Entry> entries = [];
     private IReadOnlyList<HomeHub.Web.Modules.MealPlanner.ManageMeals.ManageMeals.Item> meals = [];
@@ -72,6 +75,10 @@
     private bool busy;
     private int revision;
     protected override async Task OnInitializedAsync() => await Refresh();
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender) { interactiveReady = true; StateHasChanged(); }
+    }
     private async Task Load()
     {
         var actor = (await Auth.GetAuthenticationStateAsync()).User;

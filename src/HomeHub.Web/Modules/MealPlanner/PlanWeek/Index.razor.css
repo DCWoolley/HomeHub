@@ -1,4 +1,5 @@
 .meal-week { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr)); gap: 1rem; }
+.meal-controls { border: 0; padding: 0; margin: 0; min-width: 0; }
 .meal-day { padding: 1rem; border: 1px solid var(--border); border-radius: 1rem; background: var(--card); }
 .meal-day h3 { margin-top: 0; }
 .meal-day small { display: block; font-weight: normal; }

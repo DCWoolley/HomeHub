@@ -8,6 +8,7 @@
 <h1>Your meals</h1>
 <p>Manage the meals shared by your household. Each meal needs just a name.</p>
 <p><a href="/MealPlanner">Open meal planner</a></p>
+<fieldset class="meal-controls" disabled="@(!interactiveReady)" aria-label="Meal management">
 @if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
 <EditForm Model="input" OnValidSubmit="Save" FormName="meal">
     <DataAnnotationsValidator /><ValidationSummary />
@@ -33,13 +34,19 @@
         <BbButton OnClick="() => pending = null" Disabled="busy">Cancel deletion</BbButton></div>
     </section>
 }
+</fieldset>
 @code {
+    private bool interactiveReady;
     private ManageMeals.Request input = new();
     private IReadOnlyList<ManageMeals.Item> meals = [];
     private ManageMeals.Deletion? pending;
     private string? error;
     private bool busy;
     protected override async Task OnInitializedAsync() => await Load();
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender) { interactiveReady = true; StateHasChanged(); }
+    }
     private async Task Load() => await Run(async () => meals = await UseCase.ListAsync((await Auth.GetAuthenticationStateAsync()).User));
     private void Edit(ManageMeals.Item meal) { input = new() { Id = meal.Id, Name = meal.Name }; pending = null; error = null; }
     private void Cancel() => input = new();

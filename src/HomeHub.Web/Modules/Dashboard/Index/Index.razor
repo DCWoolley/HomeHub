@@ -1,0 +1,17 @@
+@page "/Dashboard"
+@attribute [Authorize]
+@layout AppLayout
+@inject HomeHub.Web.Modules.Households.GetHousehold.GetHousehold CurrentHousehold
+@inject AuthenticationStateProvider Auth
+<PageTitle>Dashboard · HomeHub</PageTitle>
+@if (household is not null) {
+    <p class="eyebrow">@household.Name</p><h1>Welcome home, @household.MemberName</h1>
+    <p>Your family's shared space starts here.</p>
+    <BbCard><BbCardHeader><BbCardTitle>Your household is ready</BbCardTitle>
+    <BbCardDescription>Bring your family together and keep your member profiles up to date.</BbCardDescription></BbCardHeader>
+    <BbCardContent><a href="/Household">Manage your household</a></BbCardContent></BbCard>
+}
+@code {
+    private HomeHub.Web.Modules.Households.GetHousehold.GetHousehold.Response? household;
+    protected override async Task OnInitializedAsync() => household = await CurrentHousehold.RunAsync((await Auth.GetAuthenticationStateAsync()).User);
+}

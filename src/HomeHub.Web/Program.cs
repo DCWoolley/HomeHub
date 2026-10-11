@@ -51,6 +51,8 @@ builder.Services.AddScoped<HomeHub.Web.Modules.Households.ManageProfiles.ManageP
 builder.Services.AddScoped<HomeHub.Web.Modules.Households.TransferOwnership.TransferOwnership>();
 builder.Services.AddScoped<HomeHub.Web.Modules.Households.LeaveHousehold.LeaveHousehold>();
 builder.Services.AddScoped<HomeHub.Web.Modules.Account.Manage.DeletePersonalData.DeleteAccount>();
+builder.Services.AddScoped<HomeHub.Web.Modules.Households.GetHousehold.GetHousehold>();
+builder.Services.AddScoped<HomeHub.Web.Modules.Households.Onboarding.Onboarding>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
 var keysPath = builder.Configuration["DataProtection:KeysPath"];
@@ -80,6 +82,23 @@ else
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 if (useHttps) app.UseHttpsRedirection();
 
+app.UseAuthentication();
+app.UseAuthorization();
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path;
+    var householdRoute = path.StartsWithSegments("/Household") && !path.StartsWithSegments("/Household/Onboarding");
+    if (context.User.Identity?.IsAuthenticated == true && (householdRoute || path.StartsWithSegments("/Dashboard")))
+    {
+        var current = context.RequestServices.GetRequiredService<HomeHub.Web.Modules.Households.GetHousehold.GetHousehold>();
+        if (await current.RunAsync(context.User, context.RequestAborted) is null)
+        {
+            context.Response.Redirect("/Household/Onboarding");
+            return;
+        }
+    }
+    await next(context);
+});
 app.UseAntiforgery();
 
 app.MapStaticAssets();

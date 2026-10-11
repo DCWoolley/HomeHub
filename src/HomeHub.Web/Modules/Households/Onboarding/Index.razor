@@ -1,0 +1,41 @@
+@page "/Household/Onboarding"
+@attribute [Authorize]
+@inject Onboarding UseCase
+@inject HomeHub.Web.Modules.Households.GetHousehold.GetHousehold CurrentHousehold
+@inject AuthenticationStateProvider Auth
+@inject NavigationManager Navigation
+<PageTitle>Create or join a household</PageTitle>
+<h1>Find your household</h1>
+<p>Your account is active. Create or join a household to use HomeHub.</p>
+@if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
+<EditForm Model="input" OnValidSubmit="Join" FormName="onboarding">
+    <DataAnnotationsValidator /><ValidationSummary />
+    <label for="name">Your name</label><InputText id="name" @bind-Value="input.Name" />
+    <label for="choice">Your household</label><InputSelect id="choice" @bind-Value="input.Choice">
+        <option value="Create">Create a new household</option><option value="Join">Join with an invitation code</option>
+    </InputSelect>
+    @if (input.Choice == HomeHub.Web.Modules.Households.HouseholdChoice.Create) {
+        <label for="household-name">Household name</label><InputText id="household-name" @bind-Value="input.HouseholdName" />
+    } else {
+        <label for="invitation">Invitation code</label><InputText id="invitation" @bind-Value="input.InvitationCode" autocomplete="off" />
+    }
+    <div class="actions"><BbButton Type="ButtonType.Submit" Disabled="busy">Continue</BbButton><a href="/Account/Manage">Account settings</a></div>
+</EditForm>
+<form action="/Account/Logout" method="post"><AntiforgeryToken /><input type="hidden" name="returnUrl" value="" /><button type="submit">Sign out</button></form>
+@code {
+    private Onboarding.Request input = new();
+    private string? error;
+    private bool busy;
+    protected override async Task OnInitializedAsync()
+    {
+        if (await CurrentHousehold.RunAsync((await Auth.GetAuthenticationStateAsync()).User) is not null)
+            Navigation.NavigateTo("/Dashboard", forceLoad: true);
+    }
+    private async Task Join()
+    {
+        if (busy) return; busy = true; error = null;
+        try { await UseCase.RunAsync((await Auth.GetAuthenticationStateAsync()).User, input); Navigation.NavigateTo("/Dashboard", forceLoad: true); }
+        catch (HomeHub.Web.Modules.Households.HouseholdRuleException ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+}

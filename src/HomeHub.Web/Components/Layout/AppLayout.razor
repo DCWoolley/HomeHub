@@ -1,0 +1,57 @@
+@inherits LayoutComponentBase
+@implements IAsyncDisposable
+@inject HomeHub.Web.Modules.Households.GetHousehold.GetHousehold CurrentHousehold
+@inject AuthenticationStateProvider Auth
+@inject NavigationManager Navigation
+<header class="site-header"><a class="brand" href="/Dashboard">HomeHub<span>Family life, organised.</span></a></header>
+@if (household is not null) {
+    <div class="app-shell">
+        <aside class="sidebar" id="app-sidebar">
+            <p class="eyebrow">@household.Name</p>
+            <nav aria-label="Main navigation">
+                <NavLink href="/Dashboard">Dashboard</NavLink>
+                <NavLink href="/Household" Match="NavLinkMatch.All">Your household</NavLink>
+                <NavLink href="/Household/Members">Member profiles</NavLink>
+                <NavLink href="/Household/Accounts">Account members</NavLink>
+                @if (household.IsOwner) { <NavLink href="/Household/Invitations">Invitations</NavLink><NavLink href="/Household/Ownership">Ownership</NavLink> }
+                <NavLink href="/Account/Manage">Account settings</NavLink>
+            </nav>
+            <form action="/Account/Logout" method="post"><AntiforgeryToken /><input type="hidden" name="returnUrl" value="" /><button type="submit">Sign out</button></form>
+        </aside>
+        <main class="app-content">@Body</main>
+    </div>
+}
+<BbPortalHost />
+<div id="blazor-error-ui" data-nosnippet>An unexpected error occurred. <a href="." class="reload">Reload</a><span class="dismiss">×</span></div>
+@code {
+    private HomeHub.Web.Modules.Households.GetHousehold.GetHousehold.Response? household;
+    private readonly CancellationTokenSource stopping = new();
+    private Task? watch;
+    protected override async Task OnParametersSetAsync() => await Check();
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) watch = Watch();
+        return Task.CompletedTask;
+    }
+    private async Task Check()
+    {
+        var actor = (await Auth.GetAuthenticationStateAsync()).User;
+        if (actor.Identity?.IsAuthenticated != true) { household = null; Navigation.NavigateTo("/Account/Login", forceLoad: true); return; }
+        household = await CurrentHousehold.RunAsync(actor, stopping.Token);
+        if (household is null) Navigation.NavigateTo("/Household/Onboarding", forceLoad: true);
+    }
+    private async Task Watch()
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+        try {
+            while (await timer.WaitForNextTickAsync(stopping.Token))
+                await InvokeAsync(async () => { await Check(); StateHasChanged(); });
+        } catch (OperationCanceledException) when (stopping.IsCancellationRequested) { }
+    }
+    public async ValueTask DisposeAsync()
+    {
+        await stopping.CancelAsync();
+        if (watch is not null) await watch;
+        stopping.Dispose();
+    }
+}

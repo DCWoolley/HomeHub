@@ -1,0 +1,24 @@
+@page "/Household"
+@attribute [Authorize]
+@layout AppLayout
+@inject GetHousehold UseCase
+@inject AuthenticationStateProvider Auth
+<PageTitle>Your household</PageTitle>
+@if (household is not null) {
+    <p class="eyebrow">YOUR HOUSEHOLD</p><h1>@household.Name</h1>
+    <p>@household.ActiveMembers active members · @(household.IsOwner ? "You are the owner" : "You are a member")</p>
+    <div class="grid">
+        <BbCard><BbCardHeader><BbCardTitle>Everyone at home</BbCardTitle><BbCardDescription>Manage profiles for children and other household members.</BbCardDescription></BbCardHeader>
+        <BbCardContent><a href="/Household/Members">Member profiles</a></BbCardContent></BbCard>
+        <BbCard><BbCardHeader><BbCardTitle>Account access</BbCardTitle><BbCardDescription>See the people who can sign in.</BbCardDescription></BbCardHeader>
+        <BbCardContent><a href="/Household/Accounts">Account members</a></BbCardContent></BbCard>
+    </div>
+    @if (household.IsOwner) {
+        <div class="actions"><a href="/Household/Invitations">Invite or revoke a code</a><a href="/Household/Ownership">Transfer ownership</a></div>
+    }
+    <p><a href="/Household/Leave">Leave household</a></p>
+}
+@code {
+    private GetHousehold.Response? household;
+    protected override async Task OnInitializedAsync() => household = await UseCase.RunAsync((await Auth.GetAuthenticationStateAsync()).User);
+}

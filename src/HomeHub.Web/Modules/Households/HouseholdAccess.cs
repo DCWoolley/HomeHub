@@ -30,6 +30,8 @@ public static class HouseholdAccess
         // A database write lock serializes joining, removal, leaving, and ownership transfer.
         await db.Households.Where(x => x.Id == member.HouseholdId)
             .ExecuteUpdateAsync(set => set.SetProperty(x => x.Version, x => x.Version + 1), ct);
-        return await RequireAsync(db, actor, owner, ct);
+        var refreshed = await RequireAsync(db, actor, owner, ct);
+        if (refreshed.HouseholdId != member.HouseholdId) throw new HouseholdRuleException("Your household changed. Please try again.");
+        return refreshed;
     }
 }

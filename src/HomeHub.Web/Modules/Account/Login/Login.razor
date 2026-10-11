@@ -127,7 +127,7 @@
         if (result.Succeeded)
         {
             Logger.LogInformation("User logged in.");
-            RedirectManager.RedirectTo(ReturnUrl);
+            RedirectManager.RedirectTo(ReturnUrl ?? "/Dashboard");
         }
         else if (result.RequiresTwoFactor)
         {

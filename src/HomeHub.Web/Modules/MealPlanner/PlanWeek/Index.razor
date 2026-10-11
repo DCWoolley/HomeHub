@@ -6,11 +6,13 @@
 @inject PlanWeek UseCase
 @inject HomeHub.Web.Modules.MealPlanner.ManageMeals.ManageMeals MealList
 @inject AuthenticationStateProvider Auth
+@inject HomeHub.Web.Modules.MealPlanner.CreateMealFromPlanner.CreateMealFromPlanner CreateMeal
 <PageTitle>Weekly meal planner</PageTitle>
 <h1>Meal planner</h1>
 <p>Plan breakfast, lunch, and dinner together. Add as many meals as you need to each slot.</p>
 <p><a href="/Meals">Manage your meal list</a></p>
 @if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
+@if (message is not null) { <p class="alert" role="status">@message</p> }
 <div class="actions week-navigation">
     <BbButton OnClick="() => ChangeWeek(-7)" Disabled="@(busy || week.Year <= 1900)">Previous week</BbButton>
     <BbButton OnClick="CurrentWeek" Disabled="busy">Current week</BbButton>
@@ -19,7 +21,7 @@
     <BbButton OnClick="Refresh" Disabled="busy">Refresh plan</BbButton>
 </div>
 <h2>@week.ToString("d MMM yyyy") – @week.AddDays(6).ToString("d MMM yyyy")</h2>
-@if (meals.Count == 0) { <p>Your meal list is empty. <a href="/Meals">Add meals</a> to start planning.</p> }
+@if (meals.Count == 0) { <p>Your meal list is empty. Create a meal in any slot below to start planning.</p> }
 <div class="meal-week">
 @for (var offset = 0; offset < 7; offset++) {
     var date = week.AddDays(offset);
@@ -44,6 +46,17 @@
                         <option value="@meal.Id">@meal.Name</option>
                     }
                 </select>
+                <div class="actions"><BbButton OnClick="() => BeginCreate(date, time)" Disabled="busy">Create a meal</BbButton></div>
+                @if (newMeal is not null && newMeal.Date == date && newMeal.Time == time) {
+                    <EditForm Model="newMeal" OnValidSubmit="Create" FormName="new-planner-meal">
+                        <DataAnnotationsValidator /><ValidationSummary />
+                        <label for="new-meal-name">Meal name</label>
+                        <InputText id="new-meal-name" @bind-Value="newMeal.Name" maxlength="100" disabled="@busy" />
+                        <p>If this name already exists, we’ll use that meal. Other meals in this slot will stay.</p>
+                        <div class="actions"><BbButton Type="ButtonType.Submit" Disabled="busy">Save and add meal</BbButton>
+                        <BbButton OnClick="() => newMeal = null" Disabled="busy">Cancel</BbButton></div>
+                    </EditForm>
+                }
             </div>
         }
     </section>
@@ -54,6 +67,8 @@
     private IReadOnlyList<PlanWeek.Entry> entries = [];
     private IReadOnlyList<HomeHub.Web.Modules.MealPlanner.ManageMeals.ManageMeals.Item> meals = [];
     private string? error;
+    private string? message;
+    private HomeHub.Web.Modules.MealPlanner.CreateMealFromPlanner.CreateMealFromPlanner.Request? newMeal;
     private bool busy;
     private int revision;
     protected override async Task OnInitializedAsync() => await Refresh();
@@ -65,12 +80,12 @@
         revision++;
     }
     private async Task Refresh() => await Run(Load);
-    private async Task ChangeWeek(int days) => await Run(async () => { week = week.AddDays(days); await Load(); });
-    private async Task CurrentWeek() => await Run(async () => { week = PlanWeek.Monday(DateOnly.FromDateTime(DateTime.Today)); await Load(); });
+    private async Task ChangeWeek(int days) => await Run(async () => { newMeal = null; week = week.AddDays(days); await Load(); });
+    private async Task CurrentWeek() => await Run(async () => { newMeal = null; week = PlanWeek.Monday(DateOnly.FromDateTime(DateTime.Today)); await Load(); });
     private async Task ChooseWeek(ChangeEventArgs e) => await Run(async () => {
         if (!DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date) || date.Year < 1900 || date.Year > 9998)
             throw new HouseholdRuleException("Choose a valid week.");
-        week = PlanWeek.Monday(date); await Load();
+        newMeal = null; week = PlanWeek.Monday(date); await Load();
     });
     private async Task Add(DateOnly date, MealTime time, ChangeEventArgs e) => await Set(date, time, e, null);
     private async Task Replace(PlanWeek.Entry entry, ChangeEventArgs e) => await Set(entry.Date, entry.Time, e, entry.Id);
@@ -81,9 +96,20 @@
     private async Task Remove(Guid id) => await Run(async () => {
         await UseCase.RemoveAsync((await Auth.GetAuthenticationStateAsync()).User, id); await Load();
     });
+    private void BeginCreate(DateOnly date, MealTime time)
+    {
+        newMeal = new() { Date = date, Time = time }; error = null; message = null;
+    }
+    private async Task Create() => await Run(async () => {
+        if (newMeal is null) return;
+        var result = await CreateMeal.RunAsync((await Auth.GetAuthenticationStateAsync()).User, newMeal);
+        message = result.AlreadyPlanned ? $"{result.Name} is already in this slot."
+            : result.Reused ? $"Added existing meal {result.Name} to the plan." : $"Created {result.Name} and added it to the plan.";
+        newMeal = null; await Load();
+    });
     private async Task Run(Func<Task> action)
     {
-        if (busy) return; busy = true; error = null;
+        if (busy) return; busy = true; error = null; message = null;
         try { await action(); }
         catch (HouseholdRuleException ex) { error = ex.Message; }
         finally { busy = false; revision++; }

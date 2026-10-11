@@ -49,7 +49,7 @@ try {
         'Input.ConfirmPassword'=$testPassword; 'Input.Choice'='Join'; 'Input.InvitationCode'=$invitationCode
     }
     Assert-Condition ($joined.Content -match [regex]::Escape($householdName)) 'Invitation registration failed.'
-    foreach ($path in @('/Dashboard','/Household','/Household/Members','/Household/Accounts','/Household/Invitations','/Household/Ownership','/Household/Leave','/Account/Manage')) {
+    foreach ($path in @('/Dashboard','/Meals','/MealPlanner','/Household','/Household/Members','/Household/Accounts','/Household/Invitations','/Household/Ownership','/Household/Leave','/Account/Manage')) {
         Assert-Condition ((Invoke-WebRequest "$BaseUri$path" -WebSession $ownerSession).StatusCode -eq 200) "Authenticated route failed: $path"
     }
     $loginSession = [Microsoft.PowerShell.Commands.WebRequestSession]::new()

@@ -55,6 +55,7 @@ builder.Services.AddScoped<HomeHub.Web.Modules.Households.GetHousehold.GetHouseh
 builder.Services.AddScoped<HomeHub.Web.Modules.Households.Onboarding.Onboarding>();
 builder.Services.AddScoped<HomeHub.Web.Modules.MealPlanner.ManageMeals.ManageMeals>();
 builder.Services.AddScoped<HomeHub.Web.Modules.MealPlanner.PlanWeek.PlanWeek>();
+builder.Services.AddScoped<HomeHub.Web.Modules.MealPlanner.CreateMealFromPlanner.CreateMealFromPlanner>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
 var keysPath = builder.Configuration["DataProtection:KeysPath"];

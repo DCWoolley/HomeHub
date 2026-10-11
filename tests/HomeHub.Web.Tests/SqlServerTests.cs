@@ -33,6 +33,15 @@ public sealed class SqlServerTests
             var results = await Task.WhenAll(Create("Pasta"), Create(" pasta "));
             Assert.Single(results, x => x);
             Assert.Single(await meals.ListAsync(actor));
+            var create = app.Services.GetRequiredService<HomeHub.Web.Modules.MealPlanner.CreateMealFromPlanner.CreateMealFromPlanner>();
+            var date = new DateOnly(2026, 10, 12);
+            var inlineResults = await Task.WhenAll(
+                create.RunAsync(actor, new() { Name = "Soup", Date = date, Time = HomeHub.Web.Modules.MealPlanner.MealTime.Dinner }),
+                create.RunAsync(actor, new() { Name = " soup ", Date = date, Time = HomeHub.Web.Modules.MealPlanner.MealTime.Dinner }));
+            Assert.Single(inlineResults, x => !x.Reused);
+            Assert.Single(inlineResults, x => x.AlreadyPlanned);
+            Assert.Equal(2, (await meals.ListAsync(actor)).Count);
+            Assert.Single(await app.Services.GetRequiredService<HomeHub.Web.Modules.MealPlanner.PlanWeek.PlanWeek>().GetAsync(actor, date));
         }
         finally
         {

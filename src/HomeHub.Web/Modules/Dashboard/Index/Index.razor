@@ -12,6 +12,11 @@
         <BbCardDescription>Bring your family together and keep your member profiles up to date.</BbCardDescription></BbCardHeader>
         <BbCardContent><a href="/Household">Manage your household</a></BbCardContent></BbCard>
     </div>
+    <div class="dashboard-card">
+        <BbCard><BbCardHeader><BbCardTitle>Meals for the week</BbCardTitle>
+        <BbCardDescription>Plan breakfast, lunch, and dinner from your household’s shared meal list.</BbCardDescription></BbCardHeader>
+        <BbCardContent><a href="/MealPlanner">Open meal planner</a> · <a href="/Meals">Manage meals</a></BbCardContent></BbCard>
+    </div>
 }
 @code {
     private HomeHub.Web.Modules.Households.GetHousehold.GetHousehold.Response? household;

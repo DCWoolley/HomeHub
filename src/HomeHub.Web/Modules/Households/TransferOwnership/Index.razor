@@ -1,0 +1,38 @@
+@page "/Household/Ownership"
+@attribute [Authorize]
+@using HomeHub.Web.Modules.Households
+@inject TransferOwnership UseCase
+@inject AuthenticationStateProvider Auth
+@inject NavigationManager Navigation
+<PageTitle>Transfer ownership</PageTitle>
+<h1>Transfer ownership</h1>
+<p>The new owner will manage invitations and account removals. You will become an ordinary member.</p>
+@if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
+@if (candidates.Count > 0) {
+    <label for="new-owner">New owner</label>
+    <select id="new-owner" @bind="target"><option value="">Choose an account member</option>
+    @foreach (var candidate in candidates) { <option value="@candidate.UserId">@candidate.Name</option> }</select>
+    <label><input type="checkbox" @bind="confirmed" />I understand I will give up ownership.</label>
+    <BbButton OnClick="Transfer" Disabled="@(busy || !confirmed || string.IsNullOrEmpty(target))">Transfer ownership</BbButton>
+} else if (error is null) {
+    <p>Invite another account member before transferring ownership or leaving.</p>
+}
+<p><a href="/Household">Back to household</a></p>
+@code {
+    private IReadOnlyList<TransferOwnership.Candidate> candidates = [];
+    private string target = "";
+    private string? error;
+    private bool busy, confirmed;
+    protected override async Task OnInitializedAsync()
+    {
+        try { candidates = await UseCase.CandidatesAsync((await Auth.GetAuthenticationStateAsync()).User); }
+        catch (HouseholdRuleException ex) { error = ex.Message; }
+    }
+    private async Task Transfer()
+    {
+        if (busy || !confirmed) return; busy = true; error = null;
+        try { await UseCase.RunAsync((await Auth.GetAuthenticationStateAsync()).User, target); Navigation.NavigateTo("/Household", forceLoad: true); }
+        catch (HouseholdRuleException ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+}

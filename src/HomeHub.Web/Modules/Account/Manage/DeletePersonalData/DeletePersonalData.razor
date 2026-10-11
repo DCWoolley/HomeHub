@@ -1,97 +1,29 @@
 @page "/Account/Manage/DeletePersonalData"
-
-@using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Identity
-@using HomeHub.Web.Data
-
-@inject UserManager<ApplicationUser> UserManager
-@inject SignInManager<ApplicationUser> SignInManager
-@inject IdentityRedirectManager RedirectManager
-@inject ILogger<DeletePersonalData> Logger
-
-<PageTitle>Delete Personal Data</PageTitle>
-
-<StatusMessage Message="@message" />
-
-<h3>Delete Personal Data</h3>
-
-<div class="alert alert-warning" role="alert">
-    <p>
-        <strong>Deleting this data will permanently remove your account, and this cannot be recovered.</strong>
-    </p>
-</div>
-
-<div>
-    <EditForm Model="Input" FormName="delete-user" OnValidSubmit="OnValidSubmitAsync" method="post">
-        <DataAnnotationsValidator />
-        <ValidationSummary class="text-danger" role="alert" />
-        @if (requirePassword)
-        {
-            <div class="form-floating mb-3">
-                <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" placeholder="Please enter your password." />
-                <label for="Input.Password" class="form-label">Password</label>
-                <ValidationMessage For="() => Input.Password" class="text-danger" />
-            </div>
-        }
-        <button class="w-100 btn btn-lg btn-danger" type="submit">Delete data and close my account</button>
-    </EditForm>
-</div>
-
+@inject DeleteAccount UseCase
+@inject SignInManager<ApplicationUser> SignIn
+@inject IdentityRedirectManager Redirect
+<PageTitle>Delete account</PageTitle>
+<h1>Delete your account</h1>
+<p>Leave your household first. Owners must transfer ownership before leaving.</p>
+<p>Deleting your account is permanent.</p>
+@if (error is not null) { <p role="alert" class="alert alert-danger">@error</p> }
+<EditForm Model="Input" method="post" FormName="delete-user" OnValidSubmit="Delete">
+    <DataAnnotationsValidator />
+    <label for="delete-password">Confirm your password</label><InputText id="delete-password" type="password" @bind-Value="Input.Password" autocomplete="current-password" />
+    <div class="actions"><button type="submit">Delete account permanently</button></div>
+</EditForm>
 @code {
-    private string? message;
-    private ApplicationUser? user;
-    private bool requirePassword;
-
-    [CascadingParameter]
-    private HttpContext HttpContext { get; set; } = default!;
-
-    [SupplyParameterFromForm]
-    private InputModel Input { get; set; } = default!;
-
-    protected override async Task OnInitializedAsync()
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    [SupplyParameterFromForm] private InputModel Input { get; set; } = default!;
+    private string? error;
+    protected override void OnInitialized() => Input ??= new();
+    private async Task Delete()
     {
-        Input ??= new();
-
-        user = await UserManager.GetUserAsync(HttpContext.User);
-        if (user is null)
-        {
-            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
-            return;
-        }
-        requirePassword = await UserManager.HasPasswordAsync(user);
+        error = await UseCase.RunAsync(HttpContext.User, Input.Password, HttpContext.RequestAborted);
+        if (error is not null) return;
+        await SignIn.SignOutAsync();
+        Redirect.RedirectTo("/");
     }
-
-    private async Task OnValidSubmitAsync()
-    {
-        if (user is null)
-        {
-            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
-            return;
-        }
-
-        if (requirePassword && !await UserManager.CheckPasswordAsync(user, Input.Password))
-        {
-            message = "Error: Incorrect password.";
-            return;
-        }
-
-        var result = await UserManager.DeleteAsync(user);
-        if (!result.Succeeded)
-        {
-            throw new InvalidOperationException("Unexpected error occurred deleting user.");
-        }
-
-        await SignInManager.SignOutAsync();
-
-        var userId = await UserManager.GetUserIdAsync(user);
-        Logger.LogInformation("User with ID '{UserId}' deleted themselves.", userId);
-
-        RedirectManager.RedirectToCurrentPage();
-    }
-
-    private sealed class InputModel
-    {
-        [DataType(DataType.Password)]
-        public string Password { get; set; } = "";
-    }
+    private sealed class InputModel { [Required] public string Password { get; set; } = ""; }
 }

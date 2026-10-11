@@ -48,6 +48,9 @@ builder.Services.AddScoped<HomeHub.Web.Modules.Account.Register.RegisterAccount>
 builder.Services.AddScoped<HomeHub.Web.Modules.Households.ManageInvitations.ManageInvitations>();
 builder.Services.AddScoped<HomeHub.Web.Modules.Households.ManageAccountMembers.ManageAccountMembers>();
 builder.Services.AddScoped<HomeHub.Web.Modules.Households.ManageProfiles.ManageProfiles>();
+builder.Services.AddScoped<HomeHub.Web.Modules.Households.TransferOwnership.TransferOwnership>();
+builder.Services.AddScoped<HomeHub.Web.Modules.Households.LeaveHousehold.LeaveHousehold>();
+builder.Services.AddScoped<HomeHub.Web.Modules.Account.Manage.DeletePersonalData.DeleteAccount>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
 var keysPath = builder.Configuration["DataProtection:KeysPath"];

@@ -1,0 +1,25 @@
+@page "/Household/Leave"
+@attribute [Authorize]
+@using HomeHub.Web.Modules.Households
+@inject LeaveHousehold UseCase
+@inject AuthenticationStateProvider Auth
+@inject NavigationManager Navigation
+<PageTitle>Leave household</PageTitle>
+<h1>Leave your household</h1>
+<p>You will immediately lose access to this household. Your account will remain, and you can create or join another household.</p>
+<p>If you own this household, <a href="/Household/Ownership">transfer ownership</a> first.</p>
+@if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
+<label><input type="checkbox" @bind="confirmed" />I want to leave this household.</label>
+<BbButton OnClick="Leave" Disabled="@(busy || !confirmed)">Leave household</BbButton>
+<p><a href="/Household">Cancel</a></p>
+@code {
+    private bool confirmed, busy;
+    private string? error;
+    private async Task Leave()
+    {
+        if (busy || !confirmed) return; busy = true; error = null;
+        try { await UseCase.RunAsync((await Auth.GetAuthenticationStateAsync()).User); Navigation.NavigateTo("/Household/Onboarding", forceLoad: true); }
+        catch (HouseholdRuleException ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+}

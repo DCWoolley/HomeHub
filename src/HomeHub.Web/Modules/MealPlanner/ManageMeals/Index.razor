@@ -7,6 +7,7 @@
 <PageTitle>Meal list</PageTitle>
 <h1>Your meals</h1>
 <p>Manage the meals shared by your household. Each meal needs just a name.</p>
+<p><a href="/MealPlanner">Open meal planner</a></p>
 @if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
 <EditForm Model="input" OnValidSubmit="Save" FormName="meal">
     <DataAnnotationsValidator /><ValidationSummary />

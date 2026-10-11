@@ -49,6 +49,7 @@ public sealed class AccessTests
     [Theory]
     [InlineData("/Dashboard")]
     [InlineData("/Meals")]
+    [InlineData("/MealPlanner")]
     [InlineData("/Household")]
     [InlineData("/Household/Members")]
     [InlineData("/Household/Invitations")]

@@ -1,13 +1,34 @@
 # Households
 
-Persistence distinguishes a person's assignable profile from an account's access link. Membership is keyed by Identity user ID (at most one household per account); the profile link belongs to that same household. A filtered unique index permits at most one owner per household. Use cases preserve exactly one owner while creating or transferring ownership.
+## Access and profiles
 
-Invitation codes will be stored as SHA-256 hashes, redeemed once and expired after seven days. Removed profiles are retained for future assignment history and excluded from active member choices. Household registration and management are implemented in subsequent Restart issues.
+Registration either creates a household and its owner or joins with a valid code. The Identity account, profile, access link and invitation redemption commit together. A failed registration leaves no new standalone account.
 
-Owner-only invitations are managed at /Household/Invitations. Codes are generated from 128 random bits, shown once, stored only as hashes, expire after seven days, and can be revoked. /Household/Accounts lists account members; only the owner can remove another account. Removal atomically retires its profile and deletes its access link while retaining Identity. Mutations serialize on the household row and revalidate membership after acquiring the lock.
+HouseholdMembership is keyed by Identity user ID, so an account can have only one household. HouseholdMember is the stable assignable person profile. A composite foreign key keeps the access link attached to a profile in the same household. A filtered unique owner index permits at most one owner; use cases preserve exactly one owner.
 
-All active account members can manage non-login profiles at /Household/Members. Account-linked profiles are listed but access is managed separately. Retiring a non-login profile preserves its stable ID and excludes it from GetActiveMembersAsync choices; retired profiles cannot be edited.
+All active account members can create, rename and retire profiles without logins. Account-linked profiles appear in active member choices but their access is managed separately. Retirement preserves the profile ID and excludes it from active choices. Non-login profiles cannot authenticate or own the household.
 
-/Household/Ownership allows the current owner to transfer to another active account member. Two owner-flag saves run in one transaction under the household lock, preserving the unique owner constraint. /Household/Leave retires the leaving profile and removes access while retaining Identity; the owner cannot leave before transfer. Account deletion requires leaving first, so deleting Identity cannot bypass ownership rules.
+Only the owner can invite or remove account members. Removal atomically deletes access and retires the profile; Identity remains. Members can leave, but an owner must first transfer ownership to another active account member. Identity deletion requires leaving first.
 
-The dashboard is at /Dashboard; /Household is the management entry point. Household HTTP routes redirect authenticated accounts without membership to /Household/Onboarding. The interactive app layout rechecks access on navigation and every five seconds; all data operations revalidate immediately. Onboarding lets existing accounts create or join without registering again; account settings remain accessible. No meal or cleaning functionality is included.
+## Invitations and concurrency
+
+Codes contain 128 random bits, are shown only at creation, and are stored as SHA-256 hashes. They expire seven days after creation, can be revoked, and can admit exactly one account. Redemption uses a conditional database update inside the registration/join transaction.
+
+Household mutations acquire a write lock by updating the household Version before rechecking membership. Joining, revocation, removal, leaving and transfer serialize on that row. Ownership transfer saves the two owner flags in one transaction, respecting the filtered unique index. Client role checks only affect presentation; use cases enforce authorization again.
+
+## Entry points
+
+| Route | Purpose |
+| --- | --- |
+| /Household | Household summary and navigation |
+| /Household/Members | Everyone can manage non-login profiles |
+| /Household/Accounts | List account members; owner can remove access |
+| /Household/Invitations | Owner creates and revokes single-use codes |
+| /Household/Ownership | Owner transfers to an active account member |
+| /Household/Leave | Leave after transferring ownership if necessary |
+| /Household/Onboarding | Existing accounts without membership create or join |
+| /Dashboard | Protected dashboard shell |
+
+Household HTTP requests redirect accounts without membership to onboarding. Account settings remain available. Each server-side data operation revalidates membership, so retained cookies and an already-open circuit cannot authorize a removed user. AppLayout also checks on navigation and every five seconds to clear the visible household shell.
+
+Meal Planner and Cleaning will use active profiles for assignment when those modules are separately planned. They are not implemented here.

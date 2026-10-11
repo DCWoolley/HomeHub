@@ -11,7 +11,7 @@ These instructions apply to the entire repository.
 - Components is reserved for routing, layouts, error/not-found pages, and genuinely reusable UI.
 - Prefer small cohesive types, direct EF use in use cases, asynchronous I/O, cancellation, and DI. No mediator, generic repositories, or speculative abstractions.
 - Razor imports are folder-scoped; project-level _Imports.razor applies to both Components and Modules.
-- Account forms use static SSR for cookies and antiforgery. Other pages use Interactive Server. Keep Blueprint overlays within an interactive provider boundary.
+- Account forms use static SSR for cookies and antiforgery. Email delivery is not configured: never claim a no-op email was sent or expose confirmation tokens. Other pages use Interactive Server. Keep Blueprint overlays within an interactive provider boundary.
 - Revalidate current membership on every household operation. Accounts have at most one household; only the owner invites/removes account members or transfers ownership. Everyone can manage profiles without logins.
 - Registration must atomically create an account with household membership. Invitations are revocable, single-use, and expire after seven days.
 - Keep credentials and sensitive personal data out of source and logs. Do not log invitation codes.
@@ -19,6 +19,7 @@ These instructions apply to the entire repository.
 ## Verification
 
 - Build from the root: `dotnet build HomeHub.slnx`.
+- On Windows with SQL Server LocalDB, set HOMEHUB_TEST_LOCALDB=1 to include isolated fresh-migration and concurrency tests; never target production for tests.
 - Run focused meaningful tests under tests: `dotnet test HomeHub.slnx --no-restore -v:m`.
 - For persistence changes: `dotnet ef migrations has-pending-model-changes --project src/HomeHub.Web`. Do not apply production migrations just to verify.
 - Verify affected Razor routes, rendering, and authentication when possible.
@@ -26,7 +27,7 @@ These instructions apply to the entire repository.
 
 ## Deployment
 
-- Deploy behavior changes to production after required verification, unless the user asks otherwise. For this staged Restart implementation, deploy the completed foundation in issue #8.
+- Deploy behavior changes to production after required verification, unless the user asks otherwise.
 - Follow [README deployment instructions](README.md#deploy-to-unraid-over-ssh), using local source and Docker context serverone (ssh://serverone).
 - Preserve port 5293, SQL Server service, and named volume homehub_homehub-data-protection. Never delete persistent Docker volumes.
 - The user explicitly authorised deleting the old HomeHub database/data for Restart. Verify the exact database target and leave unrelated databases untouched.

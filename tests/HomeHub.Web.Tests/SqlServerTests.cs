@@ -12,10 +12,9 @@ namespace HomeHub.Web.Tests;
 
 public sealed class SqlServerTests
 {
-    [Fact]
+    [LocalDbFact]
     public async Task FreshMigrationsAndConcurrentMembershipChangesPreserveInvariants()
     {
-        if (Environment.GetEnvironmentVariable("HOMEHUB_TEST_LOCALDB") != "1") return;
         var name = "HomeHub_RestartTest_" + Guid.NewGuid().ToString("N");
         var connection = $"Server=(localdb)\\MSSQLLocalDB;Database={name};Trusted_Connection=True;MultipleActiveResultSets=True";
         try

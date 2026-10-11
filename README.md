@@ -1,18 +1,68 @@
 # HomeHub
 
-HomeHub helps families organise home and family life. The Restart foundation is being implemented in [GitHub project Restart](https://github.com/users/DCWoolley/projects/1); meal planning and cleaning will be separate modules planned later.
+HomeHub helps families organise home and family life. The [Restart project](https://github.com/users/DCWoolley/projects/1) establishes accounts, households, the dashboard shell, and deployment. Meal planning and cleaning will be separately planned modules; budgeting and family schedules are future ideas.
+
+## Current scope
+
+- Identity accounts with email/password login, profile settings, password changes, optional authenticator-based two-factor authentication, personal-data download, and guarded account deletion.
+- Registration must create a household or redeem an invitation. Account creation, membership, and code redemption are atomic.
+- Each account belongs to one household. The creator is its owner. Only the owner can invite or remove account members and transfer ownership.
+- Invitations are single-use, expire seven days after creation, and can be revoked. Codes are shown once and stored as hashes.
+- Everyone with active household access can manage profiles without logins, such as children. Removing a profile retires it while preserving its stable ID.
+- Removing an account member or leaving retires its profile and immediately revokes access while preserving the account. That account can sign in to create/join a household or manage account settings.
+- An owner must transfer ownership to another active account member before leaving. Account deletion requires leaving first.
+- The dashboard is a shell for future modules. No meals, cleaning schedules, budget, calendar, floors, or rooms are implemented.
+
+Email confirmation is not required. Email delivery is not configured; email changes and password recovery by email are explicitly unavailable. The UI does not claim to send messages. Passkey/external-provider template adapters remain available for future configuration but are not offered in the initial login/navigation; passkeys require HTTPS.
+
+See [Households](src/HomeHub.Web/Modules/Households/README.md) and [Account](src/HomeHub.Web/Modules/Account/README.md).
 
 ## Architecture
 
-One .NET 10 Blazor Interactive Server application with Identity accounts, EF Core SQL Server, and [Blazor Blueprint](https://blazorblueprintui.com/docs/installation). Use `Modules/<Module>/<UseCase>/` at the project root, one C# file for use-case logic and separate Razor UI. Shared module UI belongs within the module. Components holds the application shell; Data holds EF persistence.
+One application project, `src/HomeHub.Web`, targets .NET 10 and uses Blazor Interactive Server, ASP.NET Core Identity, EF Core SQL Server, and [Blazor Blueprint](https://blazorblueprintui.com/docs/installation) 4.1.0. Test projects are separate under tests.
 
-Identity forms use static server rendering for authentication cookies. Ordinary application pages use Interactive Server. The old multi-project application, meals, floors and rooms have been removed.
+Use vertical slices at the project root:
 
-## Development
+```text
+Modules/
+  Account/
+    Register/
+      Register.cs
+      Register.razor
+    Shared/
+  Households/
+    ManageProfiles/
+      ManageProfiles.cs
+      Index.razor
+    Household.cs
+  Dashboard/
+    Index/
+      Index.razor
+Components/    # routing, layouts and reusable application shell
+Data/          # Identity user, EF context, migrations and database health
+```
 
-Install the .NET 10 SDK. Build with `dotnet build HomeHub.slnx` and run with `dotnet run --project src/HomeHub.Web`. The development connection uses SQL Server LocalDB; override ConnectionStrings:DefaultConnection with user secrets or environment configuration for another SQL Server.
+Each use case keeps its request, validation, handler, and response in one C# file where needed. Razor files contain UI/form state and can sit beside that file. Module-shared UI belongs within the module; shared entities and technical adapters may live at module level. No mediator or repository layer is used.
 
-Household management, the protected dashboard, and deployment are being implemented in the remaining Restart issues. Isolated tests cover persistence, registration, rollback, single-use redemption, SSR cookies, and antiforgery. Do not deploy this intermediate foundation to the existing database.
+Identity pages use static server rendering for cookies and antiforgery. Ordinary application pages use Interactive Server with a Blueprint portal host in the layout. Household HTTP routes and every household data operation check current membership. Open application sessions also recheck on navigation and every five seconds.
+
+## Development and verification
+
+Install the .NET 10 SDK. SQL Server LocalDB is the checked-in development default. Override `ConnectionStrings:DefaultConnection` with user secrets or environment configuration for another SQL Server; never commit credentials.
+
+```powershell
+dotnet build HomeHub.slnx
+dotnet run --project src/HomeHub.Web
+dotnet test HomeHub.slnx --no-restore -v:m
+dotnet ef migrations has-pending-model-changes --project src/HomeHub.Web
+dotnet ef database update --project src/HomeHub.Web
+```
+
+Use EF tools compatible with .NET 10. The fresh migration lives in Data/Migrations. Apply it to a development database before registering users; production applies migrations at startup through Compose. Do not run development EF updates against production merely to verify the model.
+
+Tests use isolated SQLite databases for use-case/HTTP behavior. On Windows with SQL Server LocalDB, set `$env:HOMEHUB_TEST_LOCALDB = '1'` before running tests to include fresh SQL migrations and concurrent invitation/ownership tests. These create and delete only a unique HomeHub_RestartTest_ database and never use the production connection. Without that setting, the SQL test reports a skip.
+
+The landing route is /, login /Account/Login, registration /Account/Register, dashboard /Dashboard, household /Household, and membership recovery /Household/Onboarding. Authentication is separate from layout; signed-in accounts without membership cannot access household routes.
 
 ## Deploy to Unraid over SSH
 

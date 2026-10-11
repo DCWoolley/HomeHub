@@ -1,78 +1,70 @@
+using BlazorBlueprint.Components;
+using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using HomeHub.Web.Components;
-using HomeHub.Web.Features.Account;
-using HomeHub.Infrastructure;
-using HomeHub.Web.Features.Homes.JoinHome;
-using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using HomeHub.Web.Modules.Account;
+using HomeHub.Web.Data;
 
-namespace HomeHub.Web
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
+
+builder.Services.AddBlazorBlueprintComponents();
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<IdentityRedirectManager>();
+builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
+
+builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultScheme = IdentityConstants.ApplicationScheme;
+        options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
+    })
+    .AddIdentityCookies();
+
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(connectionString));
+builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+
+builder.Services.AddIdentityCore<ApplicationUser>(options =>
+    {
+        options.SignIn.RequireConfirmedAccount = true;
+        options.Stores.SchemaVersion = IdentitySchemaVersions.Version3;
+    })
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddSignInManager()
+    .AddDefaultTokenProviders();
+
+builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
 {
-	public class Program
-	{
-		public static async Task Main(string[] args)
-		{
-			var builder = WebApplication.CreateBuilder(args);
-
-			// Add services to the container.
-			builder.Services.AddRazorComponents()
-				.AddInteractiveServerComponents();
-
-			builder.Services.AddInfrastructure(builder.Configuration);
-			builder.Services.AddAccountFeature();
-			builder.Services.AddJoinAttemptRateLimiting();
-			builder.Services.AddDatabaseDeveloperPageExceptionFilter();
-
-			var keysPath = builder.Configuration["DataProtection:KeysPath"];
-			if (!string.IsNullOrWhiteSpace(keysPath))
-			{
-				builder.Services.AddDataProtection()
-					.PersistKeysToFileSystem(new DirectoryInfo(keysPath));
-			}
-
-			var app = builder.Build();
-			if (app.Configuration.GetValue<bool>("Database:ApplyMigrations"))
-			{
-				await app.Services.ApplyDatabaseMigrationsAsync(app.Lifetime.ApplicationStopping);
-			}
-
-			var useHttpsRedirection = app.Configuration.GetValue("Deployment:UseHttpsRedirection", true);
-
-			// Configure the HTTP request pipeline.
-			if (app.Environment.IsDevelopment())
-			{
-				app.UseMigrationsEndPoint();
-			}
-			else
-			{
-				app.UseExceptionHandler("/Error");
-				if (useHttpsRedirection)
-				{
-					app.UseHsts();
-				}
-			}
-
-			app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
-			if (useHttpsRedirection)
-			{
-				app.UseHttpsRedirection();
-			}
-
-			app.UseRateLimiter();
-			app.UseAntiforgery();
-
-			app.MapStaticAssets();
-			app.MapRazorComponents<App>()
-				.AddInteractiveServerRenderMode();
-
-			// Add additional endpoints required by the Identity /Account Razor components.
-			app.MapAccountEndpoints();
-			app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
-			app.MapHealthChecks("/health/ready", new HealthCheckOptions
-			{
-				Predicate = registration => registration.Tags.Contains("ready")
-			});
-
-			await app.RunAsync();
-		}
-	}
+    app.UseMigrationsEndPoint();
 }
+else
+{
+    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
+    app.UseHsts();
+}
+app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+app.UseHttpsRedirection();
+
+app.UseAntiforgery();
+
+app.MapStaticAssets();
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
+
+// Add additional endpoints required by the Identity /Account Razor components.
+app.MapAdditionalIdentityEndpoints();
+
+app.Run();
+
+public partial class Program { }

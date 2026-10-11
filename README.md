@@ -1,116 +1,19 @@
 # HomeHub
 
+HomeHub helps families organise home and family life. The Restart foundation is being implemented in [GitHub project Restart](https://github.com/users/DCWoolley/projects/1); meal planning and cleaning will be separate modules planned later.
+
 ## Architecture
 
-The solution uses the following Clean Architecture project boundaries:
+One .NET 10 Blazor Interactive Server application with Identity accounts, EF Core SQL Server, and [Blazor Blueprint](https://blazorblueprintui.com/docs/installation). Use `Modules/<Module>/<UseCase>/` at the project root, one C# file for use-case logic and separate Razor UI. Shared module UI belongs within the module. Components holds the application shell; Data holds EF persistence.
 
-| Project | Responsibility | Direct project references |
-| --- | --- | --- |
-| HomeHub.Domain | Entities, value objects, and domain rules | None |
-| HomeHub.Application | Use cases and interfaces for external services | Domain |
-| HomeHub.Infrastructure | Persistence and implementations of application interfaces | Application, Domain |
-| HomeHub.Web | UI, HTTP endpoints, and dependency injection composition root | Application, Infrastructure |
+Identity forms use static server rendering for authentication cookies. Ordinary application pages use Interactive Server. The old multi-project application, meals, floors and rooms have been removed.
 
-Dependencies point inward: Domain is independent, and Application does not reference Infrastructure or Web. Web references Infrastructure to wire implementations into dependency injection.
+## Development
 
-Infrastructure owns Identity persistence, its user type, migrations, and email delivery implementation. Web hosts the account UI and authentication HTTP integration under `Features/Account`. Domain and Application have no Identity or Entity Framework dependencies.
+Install the .NET 10 SDK. Build with `dotnet build HomeHub.slnx` and run with `dotnet run --project src/HomeHub.Web`. The development connection uses SQL Server LocalDB; override ConnectionStrings:DefaultConnection with user secrets or environment configuration for another SQL Server.
 
-Build the solution with `dotnet build HomeHub.slnx`.
-
-Run integration tests with `dotnet test HomeHub.slnx --no-restore -v:m`. Tests cover deployment health, HTTP account routes, authentication requirements, and data-protection persistence. They do not require the production database.
-
-## Feature organization
-
-Use vertical slices, grouping code by feature and use case. Web features live at `src/HomeHub.Web/Features/<Feature>/<UseCase>/`, alongside `Components`, never inside it. Application use cases live at `src/HomeHub.Application/Features/<Feature>/<UseCase>/` and preserve the dependency boundaries above.
-
-The home page at `/` lives in `Features/Home/Index.razor` and provides Sign in and Register buttons linking to the existing account pages. Its responsive styling is scoped to the home page. Template demo content has been removed. Identity pages live in `Features/Account` by use case; error/not-found pages remain under `Components`.
-
-## Meals and meal planner
-
-**Meals** (`/Meals`) lets household members add, rename and delete meals by name. **Meal planner** (`/MealPlanner`) holds one shared, repeating Monday–Friday plan with multiple meals per day. Select members on a planned meal only for exceptions; no selections means everyone. Deleting a saved meal warns about affected weekdays and removes its planner assignments. Recipes, ingredients and serving counts are deferred. See [Meals](src/HomeHub.Web/Features/Meals/README.md) for behaviour and verification details.
-
-## Identity development
-
-Protected home and account settings pages use `Components/Layout/AppLayout.razor`, with a responsive sidebar inspired by [Sidebar with Submenus](https://blazorblueprintui.com/blueprints/sidebars/sidebar-02). It provides collapsible home/account navigation, active links, and an account menu with antiforgery-protected sign-out. On small screens the sidebar starts closed; the header button toggles it and Escape closes it. Guest-accessible routes retain `MainLayout` without a sidebar, even for signed-in visitors. Native disclosure controls and a small `wwwroot/sidebar.js` module support static server-rendered account pages without changing their form lifecycle.
-
-All Identity pages share the home page's green-and-white card styling, including sign-in, registration, recovery, confirmation, and account settings. Settings use responsive navigation, visible field labels, and consistent security notices and actions.
-
-Registration requires a home name to create a home as its owner, or a single-use invitation code to join an existing home. Signed-in users can open **Your home** (`/Home`) to see membership, set up a home for an existing account, or generate seven-day invitations as an owner. **Configure home** (`/Home/Configure`) lets the owner rename the home, add named floors, and add rooms to a selected floor. Members can view the floors and rooms. See [Homes](src/HomeHub.Web/Features/Homes/README.md) for membership and invitation rules.
-
-**Members** (`/Home/Members`) lists the owner, account-linked members and non-user profiles. Owners can create and edit non-user profiles with optional colours, and remove other members after confirmation. Removal immediately ends home access while preserving the account and historical profile. Owners can revoke invitation codes and configure the home's timezone; existing homes start in UTC. Registration and joining POSTs share a limit of ten attempts per minute per client IP. After confirmation and sign-in, the default destination is `/Home`.
-
-On Windows with SQL Server LocalDB, set `HOMEHUB_TEST_LOCALDB=1` before running the test command to include the migration backfill regression test. It creates and deletes a uniquely named test database and never targets the configured application database.
-
-Run the app with `dotnet run --project src/HomeHub.Web`. The host supplies `ConnectionStrings:DefaultConnection` and retains the existing user-secrets identifier. The checked-in connection string uses SQL Server LocalDB.
-
-EF commands target Infrastructure with Web as the startup project, for example:
-
-```shell
-dotnet ef migrations has-pending-model-changes --project src/HomeHub.Infrastructure --startup-project src/HomeHub.Web
-dotnet ef migrations add <MigrationName> --project src/HomeHub.Infrastructure --startup-project src/HomeHub.Web --output-dir Persistence/Migrations
-```
-
-Migration history remains in Infrastructure. See the [account feature documentation](src/HomeHub.Web/Features/Account/README.md) for authentication boundaries and verification guidance.
+Household registration, household management, protected dashboard, deployment, and focused tests are being implemented in the remaining Restart issues. Do not deploy this intermediate foundation to the existing database.
 
 ## Deploy to Unraid over SSH
 
-Agents have standing user authorization to deploy after implementing new functionality or changing application behavior, once required verification passes, unless the user explicitly asks not to deploy. Documentation-only changes do not require deployment. Follow this runbook and verify container health and readiness before reporting success; report any verification or deployment blockers.
-
-Install the Docker CLI and Compose, and configure SSH key access through the `serverone` SSH alias with Docker socket access. Keep host, username, SSH port, and key settings in SSH configuration, outside the repository.
-
-Confirm the target:
-
-```powershell
-docker context inspect serverone --format '{{json .Endpoints.docker.Host}}'
-docker --context serverone info --format '{{.Name}}|{{.ServerVersion}}|{{.OSType}}|{{.OperatingSystem}}'
-```
-
-The endpoint must be `ssh://serverone`, identifying `ServerOne`, Linux, and Unraid OS. If the context is missing, create it with `docker context create serverone --docker "host=ssh://serverone" --description "Unraid over SSH"`.
-
-For initial configuration only, copy [.env.unraid.example](.env.unraid.example) to `.env.unraid` and replace the connection-string placeholders. Do not overwrite an existing configured file. The file is ignored by Git and excluded from Docker builds; use single quotes around values containing `$`.
-
-HomeHub uses the existing SQL Server database specified by `HOMEHUB_CONNECTION_STRING`. The server must be reachable from the container; `localhost` refers to the container itself. SQL data remains on the existing database server. Startup applies pending EF migrations when `Database:ApplyMigrations` is enabled, as it is in Compose. The database login needs permission for those migrations. Back up the database before deploying schema changes.
-
-| Setting | HomeHub value |
-| --- | --- |
-| Compose project / service | `homehub` / `app` |
-| Container / image | `homehub` / `homehub:local` |
-| LAN port / container port | `5293` / `8080` |
-| Environment / restart policy | `Production` / `unless-stopped` |
-| Authentication-key volume | `homehub_homehub-data-protection` |
-| Key mount | `/home/app/.aspnet/DataProtection-Keys` |
-| Liveness / readiness | `/health/live` / `/health/ready` |
-
-[Dockerfile](Dockerfile) publishes in a .NET 10 SDK stage and runs the ASP.NET runtime as the non-root `app` user. [compose.yaml](compose.yaml) preserves the existing HomeHub key volume and resource names. [.dockerignore](.dockerignore) excludes environment files, Git metadata, and local build output. No image registry is required.
-
-Compose disables HTTPS redirection and HSTS for LAN HTTP. Other configurations retain HTTPS redirection by default. Passkeys require a secure browser context, so LAN HTTP does not support passkey flows. Account email delivery is still the template no-op implementation; see the account documentation.
-
-Check the intended revision and working tree before deploying. The Docker build includes uncommitted source changes; deploy them only intentionally. Check existing container ports before changing `HOMEHUB_PORT`.
-
-```powershell
-git status --short
-git log -1 --oneline
-dotnet build HomeHub.slnx
-dotnet test HomeHub.slnx --no-restore -v:m
-dotnet ef migrations has-pending-model-changes --project src/HomeHub.Infrastructure --startup-project src/HomeHub.Web
-docker --context serverone compose --env-file .env.unraid config --quiet
-docker --context serverone compose --env-file .env.unraid up --detach --build --wait --wait-timeout 180
-docker --context serverone compose --env-file .env.unraid ps
-Invoke-RestMethod -Uri 'http://serverone:5293/health/ready' -TimeoutSec 15
-```
-
-The container health check verifies HTTP liveness. Readiness additionally requires database connectivity and no pending migrations; failures return HTTP 503 without diagnostic details. Wait for both container `healthy` and readiness `Healthy` before reporting success. The same deployment command updates the application while retaining named volumes.
-
-```powershell
-# Recent logs (use --follow to stream).
-docker --context serverone compose --env-file .env.unraid logs --tail 100 app
-
-# Stop and remove containers while preserving named volumes.
-docker --context serverone compose --env-file .env.unraid down
-```
-
-Never add `--volumes` unless persistent-data deletion is explicitly intended. Deleting the key volume signs users out and invalidates protected authentication data.
-
-## Working in this repository
-
-Read [AGENTS.md](AGENTS.md) for clean code conventions, feature placement, verification, and documentation maintenance. Agents must update relevant documentation as part of each change when behavior, structure, or conventions change, without requiring a separate reminder.
+Deployment setup is retained while Restart is implemented. The completed application will use Docker context `serverone` (`ssh://serverone`), port 5293, the existing SQL Server service, and the named volume `homehub_homehub-data-protection`. Secrets stay in ignored `.env.unraid`; never print resolved Compose environment values. The old HomeHub database/data will be deleted as explicitly requested, after verification and exact target checks. Do not delete Docker volumes.

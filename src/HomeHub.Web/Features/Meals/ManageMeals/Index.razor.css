@@ -1,8 +1,0 @@
-.meal-list { list-style: none; padding: 0; }
-.meal-list li { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid #dce7e0; }
-.meal-list strong { overflow-wrap: anywhere; }
-.meal-list p { margin: .3rem 0 0; color: #53675c; }
-dialog { max-width: min(32rem, calc(100vw - 3rem)); border: 1px solid #dce7e0; border-radius: 1rem; padding: 2rem; color: #183b2b; box-shadow: 0 1rem 4rem #163c2933; }
-dialog::backdrop { background: #10271bb3; }
-dialog h2 { overflow-wrap: anywhere; }
-dialog a { margin-left: 1rem; }

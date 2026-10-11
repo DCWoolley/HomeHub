@@ -1,9 +1,5 @@
-﻿@inherits LayoutComponentBase
-
-@Body
-
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
-</div>
+@inherits LayoutComponentBase
+<header class="site-header"><a class="brand" href="/">HomeHub<span>Family life, organised.</span></a></header>
+<main class="page">@Body</main>
+<BbPortalHost />
+<div id="blazor-error-ui" data-nosnippet>An unexpected error occurred. <a href="." class="reload">Reload</a><span class="dismiss">×</span></div>

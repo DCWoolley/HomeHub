@@ -1,0 +1,57 @@
+@page "/Household/Members"
+@attribute [Authorize]
+@using HomeHub.Web.Modules.Households
+@inject ManageProfiles UseCase
+@inject AuthenticationStateProvider Auth
+<PageTitle>Household profiles</PageTitle>
+<h1>Everyone in your household</h1>
+<p>Add children and other people without a login. Everyone in the household can manage these profiles.</p>
+@if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
+<EditForm Model="input" OnValidSubmit="Save" FormName="profile">
+    <DataAnnotationsValidator /><ValidationSummary />
+    <label for="member-name">@(input.Id is null ? "New member name" : "Edit member name")</label>
+    <InputText id="member-name" @bind-Value="input.Name" />
+    <div class="actions"><BbButton Type="ButtonType.Submit" Disabled="busy">Save member</BbButton>
+    @if (input.Id is not null) { <BbButton OnClick="Cancel">Cancel</BbButton> }</div>
+</EditForm>
+@foreach (var member in members) {
+    <div class="card"><strong>@member.Name</strong> @(member.HasAccount ? "· Has an account" : "· Profile without login")
+    @if (!member.HasAccount) {
+        <div class="actions"><BbButton OnClick="() => Edit(member)" Disabled="busy">Edit</BbButton>
+        <BbButton OnClick="() => pending = member.Id" Disabled="busy">Remove profile</BbButton></div>
+    }</div>
+}
+@if (pending is not null) {
+    <div class="alert"><p>Remove this profile from active member choices? Past references will be preserved.</p>
+        <BbButton OnClick="Retire" Disabled="busy">Confirm removal</BbButton><BbButton OnClick="() => pending = null">Cancel</BbButton></div>
+}
+<p><a href="/Household">Back to household</a></p>
+@code {
+    private ManageProfiles.Request input = new();
+    private IReadOnlyList<ManageProfiles.Member> members = [];
+    private string? error;
+    private Guid? pending;
+    private bool busy;
+    protected override async Task OnInitializedAsync() => await Load();
+    private async Task Load()
+    {
+        try { members = await UseCase.GetActiveMembersAsync((await Auth.GetAuthenticationStateAsync()).User); }
+        catch (HouseholdRuleException ex) { error = ex.Message; members = []; }
+    }
+    private void Edit(ManageProfiles.Member member) { input = new() { Id = member.Id, Name = member.Name }; error = null; }
+    private void Cancel() => input = new();
+    private async Task Save()
+    {
+        if (busy) return; busy = true; error = null;
+        try { await UseCase.SaveAsync((await Auth.GetAuthenticationStateAsync()).User, input); Cancel(); await Load(); }
+        catch (HouseholdRuleException ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+    private async Task Retire()
+    {
+        if (busy || pending is null) return; busy = true; error = null;
+        try { await UseCase.RetireAsync((await Auth.GetAuthenticationStateAsync()).User, pending.Value); pending = null; Cancel(); await Load(); }
+        catch (HouseholdRuleException ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+}

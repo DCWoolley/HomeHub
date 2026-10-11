@@ -1,0 +1,49 @@
+@page "/Household/Invitations"
+@attribute [Authorize]
+@using HomeHub.Web.Modules.Households
+@inject ManageInvitations UseCase
+@inject AuthenticationStateProvider Auth
+<PageTitle>Household invitations</PageTitle>
+<h1>Invite your family</h1>
+<p>Each code admits one account and expires after seven days. Codes are shown only when created.</p>
+@if (error is not null) { <p role="alert" class="alert alert-danger">@error</p> }
+@if (canManage) {
+    <BbButton OnClick="Create" Disabled="busy">Create invitation</BbButton>
+    @if (code is not null) { <div class="card"><p>Share this code with one person:</p><code>@(code)</code></div> }
+    @foreach (var invitation in invitations) {
+        <div class="card">
+            <p>Expires @invitation.ExpiresAtUtc.ToString("dd MMM yyyy HH:mm") UTC · @Status(invitation)</p>
+            @if (invitation.UsedAtUtc is null && invitation.RevokedAtUtc is null) {
+                <BbButton OnClick="() => Revoke(invitation.Id)" Disabled="busy">Revoke</BbButton>
+            }
+        </div>
+    }
+}
+<p><a href="/Household">Back to household</a></p>
+@code {
+    private IReadOnlyList<ManageInvitations.Invitation> invitations = [];
+    private string? code, error;
+    private bool busy, canManage;
+    protected override async Task OnInitializedAsync() => await Load();
+    private async Task Load()
+    {
+        try { invitations = await UseCase.ListAsync((await Auth.GetAuthenticationStateAsync()).User); canManage = true; }
+        catch (HouseholdRuleException ex) { error = ex.Message; canManage = false; }
+    }
+    private async Task Create()
+    {
+        if (busy) return; busy = true; error = null;
+        try { code = await UseCase.CreateAsync((await Auth.GetAuthenticationStateAsync()).User); await Load(); }
+        catch (HouseholdRuleException ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+    private async Task Revoke(Guid id)
+    {
+        if (busy) return; busy = true; error = null;
+        try { await UseCase.RevokeAsync((await Auth.GetAuthenticationStateAsync()).User, id); await Load(); }
+        catch (HouseholdRuleException ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+    private static string Status(ManageInvitations.Invitation i) => i.RevokedAtUtc is not null ? "Revoked" :
+        i.UsedAtUtc is not null ? "Used" : i.ExpiresAtUtc <= DateTime.UtcNow ? "Expired" : "Available";
+}

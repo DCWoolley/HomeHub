@@ -1,0 +1,44 @@
+@page "/Household/Accounts"
+@attribute [Authorize]
+@using HomeHub.Web.Modules.Households
+@inject ManageAccountMembers UseCase
+@inject AuthenticationStateProvider Auth
+<PageTitle>Account members</PageTitle>
+<h1>Account members</h1>
+<p>Only the owner can remove account access. Removed users keep their accounts.</p>
+@if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
+@foreach (var member in members) {
+    <div class="card"><strong>@member.Name</strong> @(member.IsOwner ? "· Owner" : "")
+    @if (isOwner && !member.IsOwner) { <BbButton OnClick="() => pending = member.UserId" Disabled="busy">Remove access</BbButton> }
+    </div>
+}
+@if (pending is not null) {
+    <div class="alert" role="alert">
+        <p>Remove this person's household access immediately? Their profile will be retired.</p>
+        <BbButton OnClick="Remove" Disabled="busy">Confirm removal</BbButton>
+        <BbButton OnClick="() => pending = null">Cancel</BbButton>
+    </div>
+}
+<p><a href="/Household">Back to household</a></p>
+@code {
+    private IReadOnlyList<ManageAccountMembers.Member> members = [];
+    private string? pending, error;
+    private bool busy, isOwner;
+    protected override async Task OnInitializedAsync() => await Load();
+    private async Task Load()
+    {
+        try {
+            var actor = (await Auth.GetAuthenticationStateAsync()).User;
+            members = await UseCase.ListAsync(actor);
+            isOwner = members.Any(x => x.UserId == HouseholdAccess.UserId(actor) && x.IsOwner);
+        }
+        catch (HouseholdRuleException ex) { error = ex.Message; members = []; isOwner = false; }
+    }
+    private async Task Remove()
+    {
+        if (busy || pending is null) return; busy = true; error = null;
+        try { await UseCase.RemoveAsync((await Auth.GetAuthenticationStateAsync()).User, pending); pending = null; await Load(); }
+        catch (HouseholdRuleException ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+}

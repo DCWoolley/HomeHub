@@ -45,6 +45,8 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
 builder.Services.AddScoped<HomeHub.Web.Modules.Account.Register.RegisterAccount>();
+builder.Services.AddScoped<HomeHub.Web.Modules.Households.ManageInvitations.ManageInvitations>();
+builder.Services.AddScoped<HomeHub.Web.Modules.Households.ManageAccountMembers.ManageAccountMembers>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
 var keysPath = builder.Configuration["DataProtection:KeysPath"];

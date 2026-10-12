@@ -4,6 +4,8 @@ Household account members can manage a shared, name-only meal list at `/Meals`. 
 
 Meal controls stay disabled during static prerendering and enable after the interactive component first renders. This prevents input being entered or forms being posted before the Blazor circuit is ready.
 
+Day cards use compact spacing and keep touch controls at least 44 pixels high. The current weekday has a violet border, tinted background, and “Today” badge. The initial server-rendered highlight uses the server's weekday; after hydration and when refreshing the schedule, the browser's local weekday is used.
+
 Deleting a meal requires confirmation. If used in the schedule, the confirmation warns that it will be removed from every slot that uses it. Deletion cascades atomically to planned occurrences and preserves other meals in each slot. If an unused meal becomes used after preview, deletion requires a new warning and confirmation.
 
 The planner at `/MealPlanner` is one reusable Monday–Sunday schedule with breakfast, lunch, and dinner. There are no calendar dates, previous/next weeks, or automatic weekly resets. Each slot accepts multiple distinct meals. The same meal can appear in other slots. Members can add, replace, and remove individual occurrences and refresh the shared schedule. A composite foreign key enforces household isolation. Each change is saved immediately; other members see changes on refresh or when opening the planner.

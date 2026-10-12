@@ -2,6 +2,9 @@
 @attribute [Authorize]
 @layout AppLayout
 @using HomeHub.Web.Modules.Households
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
+@inject IJSRuntime JS
 @inject PlanWeek UseCase
 @inject HomeHub.Web.Modules.MealPlanner.ManageMeals.ManageMeals MealList
 @inject AuthenticationStateProvider Auth
@@ -19,8 +22,8 @@
 @if (enabledSlots.Count == 0) { <p>No meal slots are enabled. Choose your slots in <a href="/MealPlanner/Settings">planner settings</a>.</p> }
 <div class="meal-week">
 @foreach (var day in Enum.GetValues<MealDay>()) {
-    <section class="meal-day" @key="day">
-        <h3>@day</h3>
+    <section class="meal-day @(day == today ? "is-today" : null)" aria-current="@(day == today ? "date" : null)" @key="day">
+        <header class="day-heading"><h3>@day</h3>@if (day == today) { <span class="today-badge">Today</span> }</header>
         @foreach (var time in enabledSlots) {
             <div class="meal-slot">
                 <h4>@time</h4>
@@ -40,7 +43,7 @@
                         <option value="@meal.Id">@meal.Name</option>
                     }
                 </select>
-                <div class="actions"><BbButton OnClick="() => BeginCreate(day, time)" Disabled="busy">Create a meal</BbButton></div>
+                <div class="actions slot-actions"><BbButton OnClick="() => BeginCreate(day, time)" Disabled="busy">Create a meal</BbButton></div>
                 @if (newMeal is not null && newMeal.Day == day && newMeal.Time == time) {
                     <EditForm Model="newMeal" OnValidSubmit="Create" FormName="new-planner-meal">
                         <DataAnnotationsValidator /><ValidationSummary />
@@ -59,6 +62,8 @@
 </fieldset>
 @code {
     private bool interactiveReady;
+    private MealDay today = (MealDay)(((int)DateTime.Today.DayOfWeek + 6) % 7);
+    private IJSObjectReference? clock;
     private IReadOnlyList<MealTime> enabledSlots = [MealTime.Dinner];
     private IReadOnlyList<PlanWeek.Entry> entries = [];
     private IReadOnlyList<HomeHub.Web.Modules.MealPlanner.ManageMeals.ManageMeals.Item> meals = [];
@@ -68,13 +73,18 @@
     private bool busy;
     private int revision;
     protected override async Task OnInitializedAsync() => await Refresh();
-    protected override void OnAfterRender(bool firstRender)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender) { interactiveReady = true; StateHasChanged(); }
+        if (firstRender) {
+            clock = await JS.InvokeAsync<IJSObjectReference>("import", "./Modules/MealPlanner/PlanWeek/Index.razor.js");
+            today = await clock.InvokeAsync<MealDay>("getCurrentDay");
+            interactiveReady = true; StateHasChanged();
+        }
     }
     private async Task Load()
     {
         var actor = (await Auth.GetAuthenticationStateAsync()).User;
+        if (clock is not null) today = await clock.InvokeAsync<MealDay>("getCurrentDay");
         var settings = await Settings.GetAsync(actor);
         enabledSlots = Enum.GetValues<MealTime>().Where(time => time switch {
             MealTime.Breakfast => settings.BreakfastEnabled,
@@ -114,5 +124,11 @@
         try { await action(); }
         catch (HouseholdRuleException ex) { error = ex.Message; }
         finally { busy = false; revision++; }
+    }
+    public async ValueTask DisposeAsync()
+    {
+        if (clock is null) return;
+        try { await clock.DisposeAsync(); }
+        catch (JSDisconnectedException) { }
     }
 }

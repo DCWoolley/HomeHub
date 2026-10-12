@@ -28,7 +28,7 @@
     <section class="alert" aria-label="Confirm meal deletion">
         <p>Delete <strong>@pending.Name</strong> from your meal list?</p>
         @if (pending.PlannedOccurrences > 0) {
-            <p role="alert">This meal is used @pending.PlannedOccurrences time(s) in your plans. Deleting it will also remove it from every plan, including past and future weeks.</p>
+            <p role="alert">This meal is used @pending.PlannedOccurrences time(s) in your schedule. Deleting it will also remove it from every slot in the schedule.</p>
         }
         <div class="actions"><BbButton OnClick="Delete" Disabled="busy">Confirm deletion</BbButton>
         <BbButton OnClick="() => pending = null" Disabled="busy">Cancel deletion</BbButton></div>

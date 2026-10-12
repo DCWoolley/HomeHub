@@ -9,6 +9,7 @@ public sealed class Meal
 }
 
 public enum MealTime { Breakfast, Lunch, Dinner }
+public enum MealDay { Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday }
 
 public sealed class PlannedMeal
 {
@@ -16,6 +17,6 @@ public sealed class PlannedMeal
     public Guid HouseholdId { get; set; }
     public Guid MealId { get; set; }
     public Meal Meal { get; set; } = null!;
-    public DateOnly Date { get; set; }
+    public MealDay Day { get; set; }
     public MealTime Time { get; set; }
 }

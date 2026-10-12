@@ -59,10 +59,10 @@ public sealed class MealTests
         await using var scope = app.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var household = (await db.HouseholdMemberships.SingleAsync()).HouseholdId;
-        var date = new DateOnly(2026, 10, 12);
-        db.PlannedMeals.AddRange(new PlannedMeal { HouseholdId = household, MealId = id, Date = date, Time = MealTime.Dinner },
-            new PlannedMeal { HouseholdId = household, MealId = id, Date = date.AddDays(-7), Time = MealTime.Lunch },
-            new PlannedMeal { HouseholdId = household, MealId = other, Date = date, Time = MealTime.Dinner });
+        var day = MealDay.Monday;
+        db.PlannedMeals.AddRange(new PlannedMeal { HouseholdId = household, MealId = id, Day = day, Time = MealTime.Dinner },
+            new PlannedMeal { HouseholdId = household, MealId = id, Day = MealDay.Friday, Time = MealTime.Lunch },
+            new PlannedMeal { HouseholdId = household, MealId = other, Day = day, Time = MealTime.Dinner });
         await db.SaveChangesAsync();
         Assert.Equal(2, (await meals.PreviewDeleteAsync(actor, id)).PlannedOccurrences);
         await Assert.ThrowsAsync<HouseholdRuleException>(() => meals.DeleteAsync(actor, id, false));

@@ -27,7 +27,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         });
         builder.Entity<PlannedMeal>(entity =>
         {
-            entity.HasIndex(x => new { x.HouseholdId, x.Date, x.Time, x.MealId }).IsUnique();
+            entity.ToTable("MealScheduleEntries");
+            entity.HasIndex(x => new { x.HouseholdId, x.Day, x.Time, x.MealId }).IsUnique();
             entity.HasOne(x => x.Meal).WithMany().HasForeignKey(x => new { x.HouseholdId, x.MealId })
                 .HasPrincipalKey(x => new { x.HouseholdId, x.Id }).OnDelete(DeleteBehavior.Cascade);
         });

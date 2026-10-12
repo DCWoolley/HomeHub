@@ -2,10 +2,8 @@
 .meal-controls { border: 0; padding: 0; margin: 0; min-width: 0; }
 .meal-day { padding: 1rem; border: 1px solid var(--border); border-radius: 1rem; background: var(--card); }
 .meal-day h3 { margin-top: 0; }
-.meal-day small { display: block; font-weight: normal; }
 .meal-slot { padding-block: .75rem; border-top: 1px solid var(--border); }
 .meal-slot h4 { margin: 0 0 .5rem; }
 .meal-slot select { width: 100%; min-width: 0; }
 .planned-meal { display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; }
-.week-navigation { align-items: center; margin-block: 1rem; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

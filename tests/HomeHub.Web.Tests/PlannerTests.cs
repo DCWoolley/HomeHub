@@ -14,7 +14,7 @@ namespace HomeHub.Web.Tests;
 public sealed class PlannerTests
 {
     [Fact]
-    public async Task MultipleMealsPersistAcrossWeeksAndOnlySelectedOccurrencesChange()
+    public async Task SingleSchedulePreservesMultipleMealsAndOnlySelectedOccurrencesChange()
     {
         using var app = new RestartFactory(); await app.InitializeAsync();
         var register = app.Services.GetRequiredService<RegisterAccount>();
@@ -31,33 +31,33 @@ public sealed class PlannerTests
         var first = await meals.SaveAsync(actor, new() { Name = "Eggs" });
         var second = await meals.SaveAsync(actor, new() { Name = "Toast" });
         var third = await meals.SaveAsync(actor, new() { Name = "Fruit" });
-        var date = new DateOnly(2026, 10, 12);
-        Assert.Equal(date, PlanWeek.Monday(date.AddDays(6)));
-        await planner.SetAsync(memberActor, date, MealTime.Breakfast, first);
-        await planner.SetAsync(memberActor, date, MealTime.Breakfast, second);
-        await planner.SetAsync(actor, date.AddDays(6), MealTime.Dinner, first);
-        await planner.SetAsync(actor, date.AddDays(7), MealTime.Lunch, first);
-        var entries = await planner.GetAsync(actor, date.AddDays(6));
-        Assert.Equal(3, entries.Count);
-        Assert.Single(await planner.GetAsync(actor, date.AddDays(7)));
-        await Assert.ThrowsAsync<HouseholdRuleException>(() => planner.SetAsync(actor, date, MealTime.Breakfast, first));
-        var entry = entries.Single(x => x.Date == date && x.MealId == first);
-        await planner.SetAsync(actor, date, MealTime.Breakfast, third, entry.Id);
-        Assert.Equal(3, (await planner.GetAsync(memberActor, date)).Count);
-        Assert.Empty(await planner.GetAsync(stranger, date));
-        await Assert.ThrowsAsync<HouseholdRuleException>(() => planner.SetAsync(stranger, date, MealTime.Breakfast, first));
+        var day = MealDay.Monday;
+        await planner.SetAsync(memberActor, day, MealTime.Breakfast, first);
+        await planner.SetAsync(memberActor, day, MealTime.Breakfast, second);
+        await planner.SetAsync(actor, MealDay.Sunday, MealTime.Dinner, first);
+        await planner.SetAsync(actor, MealDay.Tuesday, MealTime.Lunch, first);
+        var entries = await planner.GetAsync(actor);
+        Assert.Equal(4, entries.Count);
+        Assert.Contains(entries, x => x.Day == MealDay.Sunday);
+        await Assert.ThrowsAsync<HouseholdRuleException>(() => planner.SetAsync(actor, day, MealTime.Breakfast, first));
+        var entry = entries.Single(x => x.Day == day && x.MealId == first);
+        await planner.SetAsync(actor, day, MealTime.Breakfast, third, entry.Id);
+        Assert.Equal(4, (await planner.GetAsync(memberActor)).Count);
+        Assert.Empty(await planner.GetAsync(stranger));
+        await Assert.ThrowsAsync<HouseholdRuleException>(() => planner.SetAsync(stranger, day, MealTime.Breakfast, first));
         await Assert.ThrowsAsync<HouseholdRuleException>(() => planner.RemoveAsync(stranger, entry.Id));
         var foreignMeal = await meals.SaveAsync(stranger, new() { Name = "Other" });
-        await Assert.ThrowsAsync<HouseholdRuleException>(() => planner.SetAsync(actor, date, MealTime.Breakfast, foreignMeal, entry.Id));
-        await Assert.ThrowsAsync<HouseholdRuleException>(() => planner.SetAsync(actor, date, (MealTime)99, first));
+        await Assert.ThrowsAsync<HouseholdRuleException>(() => planner.SetAsync(actor, day, MealTime.Breakfast, foreignMeal, entry.Id));
+        await Assert.ThrowsAsync<HouseholdRuleException>(() => planner.SetAsync(actor, day, (MealTime)99, first));
+        await Assert.ThrowsAsync<HouseholdRuleException>(() => planner.SetAsync(actor, (MealDay)99, MealTime.Dinner, first));
         await planner.RemoveAsync(memberActor, entry.Id);
-        Assert.Equal(2, (await planner.GetAsync(actor, date)).Count);
+        Assert.Equal(3, (await planner.GetAsync(actor)).Count);
         await meals.DeleteAsync(actor, first, true);
-        Assert.Single(await planner.GetAsync(actor, date));
-        Assert.Empty(await planner.GetAsync(actor, date.AddDays(7)));
+        Assert.Single(await planner.GetAsync(actor));
+        Assert.DoesNotContain(await planner.GetAsync(actor), x => x.MealId == first);
         await app.Services.GetRequiredService<ManageAccountMembers>().RemoveAsync(actor, member.UserId!);
-        await Assert.ThrowsAsync<HouseholdRuleException>(() => planner.GetAsync(memberActor, date));
-        await Assert.ThrowsAsync<HouseholdRuleException>(() => planner.SetAsync(memberActor, date, MealTime.Dinner, second));
+        await Assert.ThrowsAsync<HouseholdRuleException>(() => planner.GetAsync(memberActor));
+        await Assert.ThrowsAsync<HouseholdRuleException>(() => planner.SetAsync(memberActor, day, MealTime.Dinner, second));
         await Assert.ThrowsAsync<HouseholdRuleException>(() => planner.RemoveAsync(memberActor, entry.Id));
     }
 
@@ -77,14 +77,17 @@ public sealed class PlannerTests
         });
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         var meal = await app.Services.GetRequiredService<ManageMeals>().SaveAsync(actor, new() { Name = "Pasta & salad" });
-        var week = PlanWeek.Monday(DateOnly.FromDateTime(DateTime.Today));
-        await app.Services.GetRequiredService<PlanWeek>().SetAsync(actor, week, MealTime.Dinner, meal);
+        var day = MealDay.Monday;
+        await app.Services.GetRequiredService<PlanWeek>().SetAsync(actor, day, MealTime.Dinner, meal);
         var html = await browser.GetStringAsync("/MealPlanner");
         Assert.Contains("<!--Blazor:{\"type\":\"server\"", html);
         Assert.Contains("<fieldset class=\"meal-controls\" disabled", html);
-        foreach (var day in new[] { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" }) Assert.Contains(day, html);
+        foreach (var label in new[] { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" }) Assert.Contains(label, html);
         Assert.Contains("Pasta &amp; salad", html);
         Assert.Contains("Breakfast", html); Assert.Contains("Lunch", html); Assert.Contains("Dinner", html);
+        Assert.DoesNotContain("Previous week", html);
+        Assert.DoesNotContain("Next week", html);
+        Assert.DoesNotContain("type=\"date\"", html);
         var mealsHtml = await browser.GetStringAsync("/Meals");
         Assert.Contains("Pasta &amp; salad", mealsHtml);
         Assert.Contains("<!--Blazor:{\"type\":\"server\"", mealsHtml);

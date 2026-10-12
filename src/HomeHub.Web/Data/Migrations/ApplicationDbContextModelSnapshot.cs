@@ -224,8 +224,8 @@ namespace HomeHub.Web.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateOnly>("Date")
-                        .HasColumnType("date");
+                    b.Property<int>("Day")
+                        .HasColumnType("int");
 
                     b.Property<Guid>("HouseholdId")
                         .HasColumnType("uniqueidentifier");
@@ -240,10 +240,10 @@ namespace HomeHub.Web.Data.Migrations
 
                     b.HasIndex("HouseholdId", "MealId");
 
-                    b.HasIndex("HouseholdId", "Date", "Time", "MealId")
+                    b.HasIndex("HouseholdId", "Day", "Time", "MealId")
                         .IsUnique();
 
-                    b.ToTable("PlannedMeals");
+                    b.ToTable("MealScheduleEntries", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>

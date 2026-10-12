@@ -13,10 +13,16 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<HouseholdInvitation> HouseholdInvitations => Set<HouseholdInvitation>();
     public DbSet<Meal> Meals => Set<Meal>();
     public DbSet<PlannedMeal> PlannedMeals => Set<PlannedMeal>();
+    public DbSet<MealPlannerSettings> MealPlannerSettings => Set<MealPlannerSettings>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+        builder.Entity<MealPlannerSettings>(entity =>
+        {
+            entity.HasKey(x => x.HouseholdId);
+            entity.HasOne<Household>().WithMany().HasForeignKey(x => x.HouseholdId).OnDelete(DeleteBehavior.Cascade);
+        });
         builder.Entity<Meal>(entity =>
         {
             entity.Property(x => x.Name).HasMaxLength(100).IsRequired();

@@ -1,0 +1,2 @@
+fieldset { border: 1px solid var(--border); border-radius: .85rem; padding: 1rem; background: var(--card); }
+legend { font-weight: 600; padding-inline: .5rem; }

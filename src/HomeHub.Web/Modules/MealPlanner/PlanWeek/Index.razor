@@ -6,20 +6,22 @@
 @inject HomeHub.Web.Modules.MealPlanner.ManageMeals.ManageMeals MealList
 @inject AuthenticationStateProvider Auth
 @inject HomeHub.Web.Modules.MealPlanner.CreateMealFromPlanner.CreateMealFromPlanner CreateMeal
+@inject HomeHub.Web.Modules.MealPlanner.ManagePlannerSettings.ManagePlannerSettings Settings
 <PageTitle>Weekly meal planner</PageTitle>
 <h1>Meal planner</h1>
 <p>Your shared Monday–Sunday schedule stays the same until you change it. Add as many meals as you need to each slot.</p>
-<p><a href="/Meals">Manage your meal list</a></p>
+<p><a href="/Meals">Manage your meal list</a> · <a href="/MealPlanner/Settings">Planner settings</a></p>
 <fieldset class="meal-controls" disabled="@(!interactiveReady)" aria-label="Weekly meal planning">
 @if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
 @if (message is not null) { <p class="alert" role="status">@message</p> }
 <div class="actions"><BbButton OnClick="Refresh" Disabled="busy">Refresh schedule</BbButton></div>
-@if (meals.Count == 0) { <p>Your meal list is empty. Create a meal in any slot below to start planning.</p> }
+@if (meals.Count == 0 && enabledSlots.Count > 0) { <p>Your meal list is empty. Create a meal in any slot below to start planning.</p> }
+@if (enabledSlots.Count == 0) { <p>No meal slots are enabled. Choose your slots in <a href="/MealPlanner/Settings">planner settings</a>.</p> }
 <div class="meal-week">
 @foreach (var day in Enum.GetValues<MealDay>()) {
     <section class="meal-day" @key="day">
         <h3>@day</h3>
-        @foreach (var time in Enum.GetValues<MealTime>()) {
+        @foreach (var time in enabledSlots) {
             <div class="meal-slot">
                 <h4>@time</h4>
                 @foreach (var entry in entries.Where(x => x.Day == day && x.Time == time)) {
@@ -57,6 +59,7 @@
 </fieldset>
 @code {
     private bool interactiveReady;
+    private IReadOnlyList<MealTime> enabledSlots = [MealTime.Dinner];
     private IReadOnlyList<PlanWeek.Entry> entries = [];
     private IReadOnlyList<HomeHub.Web.Modules.MealPlanner.ManageMeals.ManageMeals.Item> meals = [];
     private string? error;
@@ -72,6 +75,14 @@
     private async Task Load()
     {
         var actor = (await Auth.GetAuthenticationStateAsync()).User;
+        var settings = await Settings.GetAsync(actor);
+        enabledSlots = Enum.GetValues<MealTime>().Where(time => time switch {
+            MealTime.Breakfast => settings.BreakfastEnabled,
+            MealTime.Lunch => settings.LunchEnabled,
+            MealTime.Dinner => settings.DinnerEnabled,
+            _ => false
+        }).ToArray();
+        if (newMeal is not null && !enabledSlots.Contains(newMeal.Time)) newMeal = null;
         meals = await MealList.ListAsync(actor);
         entries = await UseCase.GetAsync(actor);
         revision++;

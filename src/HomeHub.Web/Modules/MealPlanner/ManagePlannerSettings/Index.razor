@@ -1,0 +1,45 @@
+@page "/MealPlanner/Settings"
+@attribute [Authorize]
+@layout AppLayout
+@using HomeHub.Web.Modules.Households
+@inject ManagePlannerSettings UseCase
+@inject AuthenticationStateProvider Auth
+<PageTitle>Meal planner settings</PageTitle>
+<h1>Meal planner settings</h1>
+<p>Choose which meal slots appear in your household’s schedule. Each choice applies to every day, Monday through Sunday.</p>
+<p>Disabled slots keep their planned meals. Enable a slot again to bring them back.</p>
+@if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
+@if (saved) { <p class="alert" role="status">Planner settings saved.</p> }
+<EditForm Model="input" OnValidSubmit="Save" FormName="planner-settings">
+    <fieldset disabled="@(!interactiveReady || busy)">
+        <legend>Meal slots for the whole week</legend>
+        <label><InputCheckbox @bind-Value="input.BreakfastEnabled" />Breakfast</label>
+        <label><InputCheckbox @bind-Value="input.LunchEnabled" />Lunch</label>
+        <label><InputCheckbox @bind-Value="input.DinnerEnabled" />Dinner</label>
+        <div class="actions"><BbButton Type="ButtonType.Submit">Save settings</BbButton></div>
+    </fieldset>
+</EditForm>
+<p><a href="/MealPlanner">Back to meal planner</a></p>
+@code {
+    private ManagePlannerSettings.Request input = new();
+    private bool interactiveReady;
+    private bool busy;
+    private bool saved;
+    private string? error;
+    protected override async Task OnInitializedAsync()
+    {
+        try { input = await UseCase.GetAsync((await Auth.GetAuthenticationStateAsync()).User); }
+        catch (HouseholdRuleException ex) { error = ex.Message; }
+    }
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender) { interactiveReady = true; StateHasChanged(); }
+    }
+    private async Task Save()
+    {
+        if (busy) return; busy = true; error = null; saved = false;
+        try { await UseCase.SaveAsync((await Auth.GetAuthenticationStateAsync()).User, input); saved = true; }
+        catch (HouseholdRuleException ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+}

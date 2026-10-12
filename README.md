@@ -15,6 +15,7 @@ HomeHub helps families organise home and family life. The [Restart project](http
 - The shared theme uses saturated violet with teal, pink, and amber accents, including Blueprint components.
 - Household members can create, view, rename, and delete name-only meals at /Meals. Duplicate names are prevented within each household. Deleting an in-use meal warns that it will also be removed from all plans.
 - The planner at /MealPlanner is one reusable Monday–Sunday schedule with multiple meals for breakfast, lunch, and dinner. It has no calendar dates or previous/next weeks and stays the same until edited. Members can select, replace, and remove individual meals from the shared list, or create a meal directly in a planner slot. Matching names reuse an existing meal. Cleaning schedules, budget, calendar, floors, and rooms remain future work.
+- Dinner is the only enabled slot by default. Household members can enable or disable breakfast, lunch, and dinner at /MealPlanner/Settings for the whole schedule. Disabled slots keep their selections for when they are enabled again.
 
 Email confirmation is not required. Email delivery is not configured; email changes and password recovery by email are explicitly unavailable. The UI does not claim to send messages. Passkey/external-provider template adapters remain available for future configuration but are not offered in the initial login/navigation; passkeys require HTTPS.
 
@@ -45,6 +46,7 @@ Modules/
     ManageMeals/
     PlanWeek/
     CreateMealFromPlanner/
+    ManagePlannerSettings/
     Meal.cs
 Components/    # routing, layouts and reusable application shell
 Data/          # Identity user, EF context, migrations and database health

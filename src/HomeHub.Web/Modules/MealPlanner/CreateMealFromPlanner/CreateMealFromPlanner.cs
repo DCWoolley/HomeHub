@@ -23,6 +23,7 @@ public sealed class CreateMealFromPlanner(IDbContextFactory<ApplicationDbContext
         await using var db = await factory.CreateDbContextAsync(ct);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         var current = await HouseholdAccess.LockAsync(db, actor, ct: ct);
+        await MealSlotAccess.RequireEnabledAsync(db, current.HouseholdId, input.Time, ct);
         var normalized = name.ToUpperInvariant();
         var meal = await db.Meals.SingleOrDefaultAsync(x => x.HouseholdId == current.HouseholdId && x.NormalizedName == normalized, ct);
         var reused = meal is not null;

@@ -13,7 +13,11 @@ public sealed class PlanWeek(IDbContextFactory<ApplicationDbContext> factory)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         var current = await HouseholdAccess.RequireAsync(db, actor, ct: ct);
-        return await db.PlannedMeals.Where(x => x.HouseholdId == current.HouseholdId)
+        var settings = await MealSlotAccess.ReadAsync(db, current.HouseholdId, ct);
+        return await db.PlannedMeals.Where(x => x.HouseholdId == current.HouseholdId &&
+                ((x.Time == MealTime.Breakfast && settings.BreakfastEnabled) ||
+                 (x.Time == MealTime.Lunch && settings.LunchEnabled) ||
+                 (x.Time == MealTime.Dinner && settings.DinnerEnabled)))
             .OrderBy(x => x.Meal.Name).Select(x => new Entry(x.Id, x.MealId, x.Meal.Name, x.Day, x.Time)).ToListAsync(ct);
     }
 
@@ -23,6 +27,7 @@ public sealed class PlanWeek(IDbContextFactory<ApplicationDbContext> factory)
         await using var db = await factory.CreateDbContextAsync(ct);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         var current = await HouseholdAccess.LockAsync(db, actor, ct: ct);
+        await MealSlotAccess.RequireEnabledAsync(db, current.HouseholdId, time, ct);
         await ManageMeals.ManageMeals.FindAsync(db, current.HouseholdId, mealId, ct);
         if (await db.PlannedMeals.AnyAsync(x => x.HouseholdId == current.HouseholdId && x.Day == day && x.Time == time && x.MealId == mealId && x.Id != entryId, ct))
             throw new HouseholdRuleException("This meal is already in this slot.");
@@ -45,6 +50,7 @@ public sealed class PlanWeek(IDbContextFactory<ApplicationDbContext> factory)
         var current = await HouseholdAccess.LockAsync(db, actor, ct: ct);
         var entry = await db.PlannedMeals.SingleOrDefaultAsync(x => x.Id == entryId && x.HouseholdId == current.HouseholdId, ct)
             ?? throw new HouseholdRuleException("Planned meal not found. Refresh the plan.");
+        await MealSlotAccess.RequireEnabledAsync(db, current.HouseholdId, entry.Time, ct);
         db.PlannedMeals.Remove(entry);
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);

@@ -23,6 +23,8 @@ public sealed class CreateMealFromPlannerTests
         var meals = app.Services.GetRequiredService<ManageMeals>();
         var planner = app.Services.GetRequiredService<PlanWeek>();
         var create = app.Services.GetRequiredService<CreateMealFromPlanner>();
+        await app.Services.GetRequiredService<HomeHub.Web.Modules.MealPlanner.ManagePlannerSettings.ManagePlannerSettings>()
+            .SaveAsync(actor, new() { BreakfastEnabled = true, LunchEnabled = true, DinnerEnabled = true });
         var day = MealDay.Monday;
         var existing = await meals.SaveAsync(actor, new() { Name = "Toast" });
         await planner.SetAsync(actor, day, MealTime.Breakfast, existing);
@@ -41,7 +43,7 @@ public sealed class CreateMealFromPlannerTests
         await Assert.ThrowsAsync<HouseholdRuleException>(() => create.RunAsync(actor, new() { Name = "Invalid", Day = (MealDay)99, Time = MealTime.Dinner }));
         await Assert.ThrowsAsync<HouseholdRuleException>(() => create.RunAsync(new(), new() { Name = "Unauthorized", Day = day, Time = MealTime.Dinner }));
         Assert.Equal(2, (await meals.ListAsync(actor)).Count);
-        var foreignResult = await create.RunAsync(stranger, new() { Name = "Eggs", Day = day, Time = MealTime.Breakfast });
+        var foreignResult = await create.RunAsync(stranger, new() { Name = "Eggs", Day = day, Time = MealTime.Dinner });
         Assert.NotEqual(result.MealId, foreignResult.MealId);
         Assert.Equal(3, (await planner.GetAsync(actor)).Count);
     }

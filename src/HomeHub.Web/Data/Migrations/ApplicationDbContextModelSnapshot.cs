@@ -218,6 +218,25 @@ namespace HomeHub.Web.Data.Migrations
                     b.ToTable("Meals");
                 });
 
+            modelBuilder.Entity("HomeHub.Web.Modules.MealPlanner.MealPlannerSettings", b =>
+                {
+                    b.Property<Guid>("HouseholdId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("BreakfastEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("DinnerEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("LunchEnabled")
+                        .HasColumnType("bit");
+
+                    b.HasKey("HouseholdId");
+
+                    b.ToTable("MealPlannerSettings");
+                });
+
             modelBuilder.Entity("HomeHub.Web.Modules.MealPlanner.PlannedMeal", b =>
                 {
                     b.Property<Guid>("Id")
@@ -440,6 +459,15 @@ namespace HomeHub.Web.Data.Migrations
                         .WithMany()
                         .HasForeignKey("HouseholdId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HomeHub.Web.Modules.MealPlanner.MealPlannerSettings", b =>
+                {
+                    b.HasOne("HomeHub.Web.Modules.Households.Household", null)
+                        .WithMany()
+                        .HasForeignKey("HouseholdId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 

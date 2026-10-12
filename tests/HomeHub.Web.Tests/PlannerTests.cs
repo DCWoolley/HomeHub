@@ -28,6 +28,8 @@ public sealed class PlannerTests
         var stranger = MembershipTests.Actor(foreign.UserId!);
         var meals = app.Services.GetRequiredService<ManageMeals>();
         var planner = app.Services.GetRequiredService<PlanWeek>();
+        await app.Services.GetRequiredService<HomeHub.Web.Modules.MealPlanner.ManagePlannerSettings.ManagePlannerSettings>()
+            .SaveAsync(actor, new() { BreakfastEnabled = true, LunchEnabled = true, DinnerEnabled = true });
         var first = await meals.SaveAsync(actor, new() { Name = "Eggs" });
         var second = await meals.SaveAsync(actor, new() { Name = "Toast" });
         var third = await meals.SaveAsync(actor, new() { Name = "Fruit" });
@@ -84,7 +86,10 @@ public sealed class PlannerTests
         Assert.Contains("<fieldset class=\"meal-controls\" disabled", html);
         foreach (var label in new[] { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" }) Assert.Contains(label, html);
         Assert.Contains("Pasta &amp; salad", html);
-        Assert.Contains("Breakfast", html); Assert.Contains("Lunch", html); Assert.Contains("Dinner", html);
+        Assert.DoesNotContain("Breakfast", html); Assert.DoesNotContain("Lunch", html); Assert.Contains("Dinner", html);
+        Assert.Contains("Planner settings", html);
+        var settingsHtml = await browser.GetStringAsync("/MealPlanner/Settings");
+        Assert.Contains("Breakfast", settingsHtml); Assert.Contains("Lunch", settingsHtml); Assert.Contains("Dinner", settingsHtml);
         Assert.DoesNotContain("Previous week", html);
         Assert.DoesNotContain("Next week", html);
         Assert.DoesNotContain("type=\"date\"", html);
@@ -94,7 +99,7 @@ public sealed class PlannerTests
         Assert.Contains("<fieldset class=\"meal-controls\" disabled", mealsHtml);
         var member = (await app.Services.GetRequiredService<ManageAccountMembers>().ListAsync(actor)).Single(x => !x.IsOwner);
         await app.Services.GetRequiredService<ManageAccountMembers>().RemoveAsync(actor, member.UserId);
-        foreach (var route in new[] { "/Meals", "/MealPlanner" })
+        foreach (var route in new[] { "/Meals", "/MealPlanner", "/MealPlanner/Settings" })
         {
             var denied = await browser.GetAsync(route);
             Assert.Equal(HttpStatusCode.Redirect, denied.StatusCode);

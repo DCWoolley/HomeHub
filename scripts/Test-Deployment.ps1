@@ -55,10 +55,10 @@ try {
         'Input.ConfirmPassword'=$testPassword; 'Input.Choice'='Join'; 'Input.InvitationCode'=$invitationCode
     }
     Assert-Condition ($joined.Content -match [regex]::Escape($householdName)) 'Invitation registration failed.'
-    foreach ($path in @('/Dashboard','/Meals','/MealPlanner','/Household','/Household/Members','/Household/Accounts','/Household/Invitations','/Household/Ownership','/Household/Leave','/Account/Manage')) {
+    foreach ($path in @('/Dashboard','/Meals','/MealPlanner','/MealPlanner/Settings','/Household','/Household/Members','/Household/Accounts','/Household/Invitations','/Household/Ownership','/Household/Leave','/Account/Manage')) {
         $page = Invoke-WebRequest "$BaseUri$path" -WebSession $ownerSession
         Assert-Condition ($page.StatusCode -eq 200) "Authenticated route failed: $path"
-        if ($path -in @('/Meals', '/MealPlanner')) {
+        if ($path -in @('/Meals', '/MealPlanner', '/MealPlanner/Settings')) {
             Assert-Condition ($page.Content -match '<!--Blazor:\{"type":"server"') "Interactive server marker missing: $path"
         }
     }

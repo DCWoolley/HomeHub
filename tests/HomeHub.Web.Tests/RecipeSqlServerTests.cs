@@ -3,6 +3,7 @@ using HomeHub.Web.Modules.Account.Register;
 using HomeHub.Web.Modules.Households;
 using HomeHub.Web.Modules.MealPlanner;
 using HomeHub.Web.Modules.MealPlanner.ManageIngredients;
+using HomeHub.Web.Modules.MealPlanner.ManageIngredientUnits;
 using HomeHub.Web.Modules.MealPlanner.ManageMeals;
 using HomeHub.Web.Modules.MealPlanner.ManageRecipe;
 using HomeHub.Web.Modules.MealPlanner.PlanWeek;
@@ -42,6 +43,9 @@ public sealed class RecipeSqlServerTests
             Assert.Equal(meal, (await meals.ListAsync(actor)).Single().Id);
             Assert.Equal(meal, (await planner.GetAsync(actor)).Single().MealId);
             var ingredients = app.Services.GetRequiredService<ManageIngredients>();
+            var units = app.Services.GetRequiredService<ManageIngredientUnits>();
+            var unit = await units.CreateAsync(actor, new() { Name = "packets" });
+            var foreignUnit = await units.CreateAsync(stranger, new() { Name = "packets" });
             var recipes = app.Services.GetRequiredService<ManageRecipe>();
             Assert.Empty((await recipes.GetAsync(actor, meal)).Items);
             async Task<bool> Attempt(Func<Task> action)
@@ -50,8 +54,8 @@ public sealed class RecipeSqlServerTests
                 catch (HouseholdRuleException) { return false; }
             }
             var creates = await Task.WhenAll(
-                Attempt(async () => { await ingredients.SaveAsync(actor, new() { Name = "Pasta" }); }),
-                Attempt(async () => { await ingredients.SaveAsync(actor, new() { Name = " pasta " }); }));
+                Attempt(async () => { await ingredients.SaveAsync(actor, new() { UnitId = unit, Name = "Pasta" }); }),
+                Attempt(async () => { await ingredients.SaveAsync(actor, new() { UnitId = unit, Name = " pasta " }); }));
             Assert.Single(creates, x => x);
             var pasta = (await ingredients.ListAsync(actor)).Single().Id;
             var adds = await Task.WhenAll(
@@ -65,7 +69,7 @@ public sealed class RecipeSqlServerTests
                 Assert.Equal(quantity, (await recipes.GetAsync(actor, meal)).Items.Single().Quantity);
             }
             var household = (await db.HouseholdMemberships.SingleAsync(x => x.UserId == owner.UserId)).HouseholdId;
-            var foreignIngredient = await ingredients.SaveAsync(stranger, new() { Name = "Pasta" });
+            var foreignIngredient = await ingredients.SaveAsync(stranger, new() { UnitId = foreignUnit, Name = "Pasta" });
             async Task InvalidRow(Guid targetMeal, Guid targetIngredient, decimal quantity)
             {
                 await using var invalidScope = app.Services.CreateAsyncScope();
@@ -76,10 +80,10 @@ public sealed class RecipeSqlServerTests
             await InvalidRow(meal, pasta, 1m); // Unique ingredient per recipe.
             await InvalidRow(foreignMeal, pasta, 1m); // Composite meal FK.
             await InvalidRow(meal, foreignIngredient, 1m); // Composite ingredient FK.
-            var unused = await ingredients.SaveAsync(actor, new() { Name = "Salt" });
+            var unused = await ingredients.SaveAsync(actor, new() { UnitId = unit, Name = "Salt" });
             await InvalidRow(meal, unused, 0m); // Quantity check constraint.
             await InvalidRow(meal, unused, -1m);
-            var racing = await ingredients.SaveAsync(actor, new() { Name = "Sauce" });
+            var racing = await ingredients.SaveAsync(actor, new() { UnitId = unit, Name = "Sauce" });
             var race = await Task.WhenAll(
                 Attempt(() => recipes.SaveAsync(actor, meal, racing, 0.25m)),
                 Attempt(() => ingredients.DeleteAsync(actor, racing)));

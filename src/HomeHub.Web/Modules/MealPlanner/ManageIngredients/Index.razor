@@ -2,7 +2,10 @@
 @attribute [Authorize]
 @layout AppLayout
 @using HomeHub.Web.Modules.Households
+@using System.Globalization
+@using HomeHub.Web.Modules.MealPlanner.ManageIngredientUnits
 @inject ManageIngredients UseCase
+@inject ManageIngredientUnits UnitUseCase
 @inject AuthenticationStateProvider Auth
 <PageTitle>Ingredients</PageTitle>
 <h1>Your ingredients</h1>
@@ -15,13 +18,34 @@
     <DataAnnotationsValidator /><ValidationSummary />
     <label for="ingredient-name">@(input.Id is null ? "New ingredient name" : "Edit ingredient name")</label>
     <InputText id="ingredient-name" @bind-Value="input.Name" maxlength="100" disabled="@busy" />
+    <label for="ingredient-unit">Unit</label>
+    <InputSelect id="ingredient-unit" @bind-Value="input.UnitId" disabled="@busy">
+        <option value="">Choose a unit</option>
+        @foreach (var unit in units) { <option value="@unit.Id">@unit.Name</option> }
+    </InputSelect>
+    <ValidationMessage For="() => input.UnitId" />
+    <label for="ingredient-amount">Amount per package</label>
+    <InputText id="ingredient-amount" @bind-Value="input.Amount" inputmode="decimal" maxlength="32" disabled="@busy" aria-describedby="ingredient-amount-help" />
+    <small id="ingredient-amount-help">For example, choose grams and enter 500 for a 500-gram packet. Use up to four decimal places, such as @Format(0.5m).</small>
     <div class="actions"><BbButton Type="ButtonType.Submit" Disabled="busy">Save ingredient</BbButton>
     @if (input.Id is not null) { <BbButton OnClick="Cancel" Disabled="busy">Cancel edit</BbButton> }
     <BbButton OnClick="Refresh" Disabled="busy">Refresh list</BbButton></div>
 </EditForm>
+<details open="@(units.Count == 0)">
+    <summary>Add a unit</summary>
+    <p>Units are shared by your household. Add any name you need, such as grams, millilitres, or packets.</p>
+    <EditForm Model="unitInput" OnValidSubmit="AddUnit" FormName="ingredient-unit">
+        <DataAnnotationsValidator /><ValidationSummary />
+        <label for="unit-name">New unit name</label>
+        <InputText id="unit-name" @bind-Value="unitInput.Name" maxlength="50" disabled="@busy" />
+        <div class="actions"><BbButton Type="ButtonType.Submit" Disabled="busy">Save unit</BbButton></div>
+    </EditForm>
+</details>
+@if (units.Count == 0) { <p>No units yet. Add your first unit to use it in the ingredient pick list.</p> }
 @if (ingredients.Count == 0) { <p>No ingredients yet. Add your first ingredient above.</p> }
 @foreach (var ingredient in ingredients) {
     <div class="card" @key="ingredient.Id"><strong>@ingredient.Name</strong>
+        <p>Amount per package: @Format(ingredient.Amount) @ingredient.Unit</p>
         <div class="actions"><BbButton OnClick="() => Edit(ingredient)" Disabled="busy">Edit</BbButton>
         <BbButton OnClick="() => Preview(ingredient)" Disabled="busy">Delete</BbButton></div>
     </div>
@@ -37,6 +61,8 @@
 @code {
     private bool interactiveReady;
     private ManageIngredients.Request input = new();
+    private ManageIngredientUnits.Request unitInput = new();
+    private IReadOnlyList<ManageIngredientUnits.Item> units = [];
     private IReadOnlyList<ManageIngredients.Item> ingredients = [];
     private ManageIngredients.Item? pending;
     private string? error;
@@ -47,10 +73,19 @@
     {
         if (firstRender) { interactiveReady = true; StateHasChanged(); }
     }
-    private async Task Refresh() => await Run(async () => ingredients = await UseCase.ListAsync((await Auth.GetAuthenticationStateAsync()).User));
-    private void Edit(ManageIngredients.Item ingredient) { input = new() { Id = ingredient.Id, Name = ingredient.Name }; pending = null; error = null; notice = null; }
+    private static string Format(decimal amount) => amount.ToString("0.####", CultureInfo.CurrentCulture);
+    private async Task Refresh() => await Run(async () => {
+        var actor = (await Auth.GetAuthenticationStateAsync()).User;
+        ingredients = await UseCase.ListAsync(actor); units = await UnitUseCase.ListAsync(actor);
+    });
+    private void Edit(ManageIngredients.Item ingredient) { input = new() { Id = ingredient.Id, Name = ingredient.Name, UnitId = ingredient.UnitId, Amount = Format(ingredient.Amount) }; pending = null; error = null; notice = null; }
     private void Preview(ManageIngredients.Item ingredient) { pending = ingredient; error = null; notice = null; }
     private void Cancel() => input = new();
+    private async Task AddUnit() => await Run(async () => {
+        var actor = (await Auth.GetAuthenticationStateAsync()).User;
+        input.UnitId = await UnitUseCase.CreateAsync(actor, unitInput);
+        units = await UnitUseCase.ListAsync(actor); unitInput = new(); notice = "Unit ready to use.";
+    });
     private async Task Save() => await Run(async () => {
         var actor = (await Auth.GetAuthenticationStateAsync()).User;
         await UseCase.SaveAsync(actor, input);

@@ -55,6 +55,7 @@ builder.Services.AddScoped<HomeHub.Web.Modules.Households.GetHousehold.GetHouseh
 builder.Services.AddScoped<HomeHub.Web.Modules.Households.Onboarding.Onboarding>();
 builder.Services.AddScoped<HomeHub.Web.Modules.MealPlanner.ManageMeals.ManageMeals>();
 builder.Services.AddScoped<HomeHub.Web.Modules.MealPlanner.ManageIngredients.ManageIngredients>();
+builder.Services.AddScoped<HomeHub.Web.Modules.MealPlanner.ManageIngredientUnits.ManageIngredientUnits>();
 builder.Services.AddScoped<HomeHub.Web.Modules.MealPlanner.ManageRecipe.ManageRecipe>();
 builder.Services.AddScoped<HomeHub.Web.Modules.MealPlanner.PlanWeek.PlanWeek>();
 builder.Services.AddScoped<HomeHub.Web.Modules.MealPlanner.ManagePlannerSettings.ManagePlannerSettings>();

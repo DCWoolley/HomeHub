@@ -7,6 +7,7 @@ using HomeHub.Web.Modules.Households.ManageAccountMembers;
 using HomeHub.Web.Modules.Households.ManageInvitations;
 using HomeHub.Web.Modules.MealPlanner;
 using HomeHub.Web.Modules.MealPlanner.ManageIngredients;
+using HomeHub.Web.Modules.MealPlanner.ManageIngredientUnits;
 using HomeHub.Web.Modules.MealPlanner.ManageMeals;
 using HomeHub.Web.Modules.MealPlanner.ManageRecipe;
 using HomeHub.Web.Modules.MealPlanner.PlanWeek;
@@ -24,17 +25,18 @@ public sealed class RecipeTests
         using var app = new RestartFactory(); await app.InitializeAsync();
         var owner = await app.Services.GetRequiredService<RegisterAccount>().RunAsync(RegistrationTests.Request());
         var actor = MembershipTests.Actor(owner.UserId!);
+        var unit = await app.Services.GetRequiredService<ManageIngredientUnits>().CreateAsync(actor, new() { Name = "packets" });
         var ingredients = app.Services.GetRequiredService<ManageIngredients>();
         var meals = app.Services.GetRequiredService<ManageMeals>();
         var recipes = app.Services.GetRequiredService<ManageRecipe>();
         var planner = app.Services.GetRequiredService<PlanWeek>();
-        var pasta = await ingredients.SaveAsync(actor, new() { Name = " Pasta " });
+        var pasta = await ingredients.SaveAsync(actor, new() { UnitId = unit, Name = " Pasta " });
         Assert.Equal("Pasta", (await ingredients.ListAsync(actor)).Single().Name);
-        var sauce = await ingredients.SaveAsync(actor, new() { Name = "Sauce" });
-        await Assert.ThrowsAsync<HouseholdRuleException>(() => ingredients.SaveAsync(actor, new() { Name = "pasta" }));
-        await Assert.ThrowsAsync<HouseholdRuleException>(() => ingredients.SaveAsync(actor, new() { Id = sauce, Name = " PASTA " }));
-        await Assert.ThrowsAsync<HouseholdRuleException>(() => ingredients.SaveAsync(actor, new() { Name = "  " }));
-        await Assert.ThrowsAsync<HouseholdRuleException>(() => ingredients.SaveAsync(actor, new() { Name = new string('x', 101) }));
+        var sauce = await ingredients.SaveAsync(actor, new() { UnitId = unit, Name = "Sauce" });
+        await Assert.ThrowsAsync<HouseholdRuleException>(() => ingredients.SaveAsync(actor, new() { UnitId = unit, Name = "pasta" }));
+        await Assert.ThrowsAsync<HouseholdRuleException>(() => ingredients.SaveAsync(actor, new() { UnitId = unit, Id = sauce, Name = " PASTA " }));
+        await Assert.ThrowsAsync<HouseholdRuleException>(() => ingredients.SaveAsync(actor, new() { UnitId = unit, Name = "  " }));
+        await Assert.ThrowsAsync<HouseholdRuleException>(() => ingredients.SaveAsync(actor, new() { UnitId = unit, Name = new string('x', 101) }));
         var meal = await meals.SaveAsync(actor, new() { Name = "Pasta bake" });
         var other = await meals.SaveAsync(actor, new() { Name = "Pasta salad" });
         Assert.Empty((await recipes.GetAsync(actor, meal)).Items);
@@ -46,7 +48,7 @@ public sealed class RecipeTests
         await Assert.ThrowsAsync<HouseholdRuleException>(() => recipes.SaveAsync(actor, meal, pasta, 9m));
         Assert.Equal(0.5m, (await recipes.GetAsync(actor, meal)).Items.Single(x => x.IngredientId == pasta).Quantity);
         await recipes.SaveAsync(actor, meal, pasta, 0.1234m, editing: true);
-        await ingredients.SaveAsync(actor, new() { Id = pasta, Name = "Wholemeal pasta" });
+        await ingredients.SaveAsync(actor, new() { UnitId = unit, Id = pasta, Name = "Wholemeal pasta" });
         await meals.SaveAsync(actor, new() { Id = meal, Name = "Weeknight bake" });
         var recipe = await recipes.GetAsync(actor, meal);
         Assert.Equal("Weeknight bake", recipe.Name);
@@ -78,8 +80,9 @@ public sealed class RecipeTests
         using var app = new RestartFactory(); await app.InitializeAsync();
         var owner = await app.Services.GetRequiredService<RegisterAccount>().RunAsync(RegistrationTests.Request());
         var actor = MembershipTests.Actor(owner.UserId!);
+        var unit = await app.Services.GetRequiredService<ManageIngredientUnits>().CreateAsync(actor, new() { Name = "packets" });
         var meal = await app.Services.GetRequiredService<ManageMeals>().SaveAsync(actor, new() { Name = "Pasta" });
-        var ingredient = await app.Services.GetRequiredService<ManageIngredients>().SaveAsync(actor, new() { Name = "Pasta" });
+        var ingredient = await app.Services.GetRequiredService<ManageIngredients>().SaveAsync(actor, new() { UnitId = unit, Name = "Pasta" });
         var recipes = app.Services.GetRequiredService<ManageRecipe>();
         foreach (var invalid in new[] { 0m, -1m, 0.00001m, 100000000m })
             await Assert.ThrowsAsync<HouseholdRuleException>(() => recipes.SaveAsync(actor, meal, ingredient, invalid));
@@ -110,7 +113,9 @@ public sealed class RecipeTests
         var owner = await register.RunAsync(RegistrationTests.Request());
         var foreign = await register.RunAsync(RegistrationTests.Request("foreign@example.test"));
         var actor = MembershipTests.Actor(owner.UserId!);
+        var unit = await app.Services.GetRequiredService<ManageIngredientUnits>().CreateAsync(actor, new() { Name = "packets" });
         var stranger = MembershipTests.Actor(foreign.UserId!);
+        var foreignUnit = await app.Services.GetRequiredService<ManageIngredientUnits>().CreateAsync(stranger, new() { Name = "packets" });
         var input = RegistrationTests.Request("member@example.test"); input.Choice = HouseholdChoice.Join;
         input.InvitationCode = await app.Services.GetRequiredService<ManageInvitations>().CreateAsync(actor);
         var member = await register.RunAsync(input);
@@ -118,13 +123,13 @@ public sealed class RecipeTests
         var ingredients = app.Services.GetRequiredService<ManageIngredients>();
         var meals = app.Services.GetRequiredService<ManageMeals>();
         var recipes = app.Services.GetRequiredService<ManageRecipe>();
-        var ingredient = await ingredients.SaveAsync(memberActor, new() { Name = "Pasta" });
+        var ingredient = await ingredients.SaveAsync(memberActor, new() { UnitId = unit, Name = "Pasta" });
         var meal = await meals.SaveAsync(actor, new() { Name = "Bake" });
-        var otherIngredient = await ingredients.SaveAsync(stranger, new() { Name = "Pasta" });
+        var otherIngredient = await ingredients.SaveAsync(stranger, new() { UnitId = foreignUnit, Name = "Pasta" });
         var otherMeal = await meals.SaveAsync(stranger, new() { Name = "Bake" });
         await recipes.SaveAsync(memberActor, meal, ingredient, 0.5m);
         Assert.Single((await recipes.GetAsync(memberActor, meal)).Items);
-        await Assert.ThrowsAsync<HouseholdRuleException>(() => ingredients.SaveAsync(stranger, new() { Id = ingredient, Name = "Stolen" }));
+        await Assert.ThrowsAsync<HouseholdRuleException>(() => ingredients.SaveAsync(stranger, new() { UnitId = foreignUnit, Id = ingredient, Name = "Stolen" }));
         await Assert.ThrowsAsync<HouseholdRuleException>(() => ingredients.DeleteAsync(stranger, ingredient));
         await Assert.ThrowsAsync<HouseholdRuleException>(() => recipes.GetAsync(stranger, meal));
         await Assert.ThrowsAsync<HouseholdRuleException>(() => recipes.SaveAsync(stranger, meal, otherIngredient, 1m));
@@ -133,7 +138,7 @@ public sealed class RecipeTests
         await Assert.ThrowsAsync<HouseholdRuleException>(() => recipes.RemoveAsync(stranger, meal, ingredient));
         await app.Services.GetRequiredService<ManageAccountMembers>().RemoveAsync(actor, member.UserId!);
         await Assert.ThrowsAsync<HouseholdRuleException>(() => ingredients.ListAsync(memberActor));
-        await Assert.ThrowsAsync<HouseholdRuleException>(() => ingredients.SaveAsync(memberActor, new() { Name = "Rice" }));
+        await Assert.ThrowsAsync<HouseholdRuleException>(() => ingredients.SaveAsync(memberActor, new() { UnitId = unit, Name = "Rice" }));
         await Assert.ThrowsAsync<HouseholdRuleException>(() => ingredients.DeleteAsync(memberActor, ingredient));
         await Assert.ThrowsAsync<HouseholdRuleException>(() => recipes.GetAsync(memberActor, meal));
         await Assert.ThrowsAsync<HouseholdRuleException>(() => recipes.SaveAsync(memberActor, meal, ingredient, 2m, editing: true));
@@ -147,6 +152,7 @@ public sealed class RecipeTests
         using var app = new RestartFactory(); await app.InitializeAsync();
         var owner = await app.Services.GetRequiredService<RegisterAccount>().RunAsync(RegistrationTests.Request());
         var actor = MembershipTests.Actor(owner.UserId!);
+        var unit = await app.Services.GetRequiredService<ManageIngredientUnits>().CreateAsync(actor, new() { Name = "packets" });
         using var browser = app.Browser();
         await BrowserForms.PostAsync(browser, "/Account/Register", "register", new()
         {
@@ -155,7 +161,7 @@ public sealed class RecipeTests
             ["Input.Choice"] = "Join", ["Input.InvitationCode"] = await app.Services.GetRequiredService<ManageInvitations>().CreateAsync(actor)
         });
         var meal = await app.Services.GetRequiredService<ManageMeals>().SaveAsync(actor, new() { Name = "Pasta bake" });
-        var ingredient = await app.Services.GetRequiredService<ManageIngredients>().SaveAsync(actor, new() { Name = "Pasta" });
+        var ingredient = await app.Services.GetRequiredService<ManageIngredients>().SaveAsync(actor, new() { UnitId = unit, Name = "Pasta" });
         await app.Services.GetRequiredService<ManageRecipe>().SaveAsync(actor, meal, ingredient, 0.5m);
         var recipePath = $"/Meals/{meal}/Recipe";
         foreach (var path in new[] { "/Ingredients", recipePath })

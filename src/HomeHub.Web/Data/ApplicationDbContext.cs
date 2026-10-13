@@ -13,6 +13,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<HouseholdInvitation> HouseholdInvitations => Set<HouseholdInvitation>();
     public DbSet<Meal> Meals => Set<Meal>();
     public DbSet<Ingredient> Ingredients => Set<Ingredient>();
+    public DbSet<IngredientUnit> IngredientUnits => Set<IngredientUnit>();
     public DbSet<RecipeItem> RecipeItems => Set<RecipeItem>();
     public DbSet<PlannedMeal> PlannedMeals => Set<PlannedMeal>();
     public DbSet<MealPlannerSettings> MealPlannerSettings => Set<MealPlannerSettings>();
@@ -20,12 +21,24 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+        builder.Entity<IngredientUnit>(entity =>
+        {
+            entity.Property(x => x.Name).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.NormalizedName).HasMaxLength(50).IsRequired();
+            entity.HasIndex(x => new { x.HouseholdId, x.NormalizedName }).IsUnique();
+            entity.HasAlternateKey(x => new { x.HouseholdId, x.Id });
+            entity.HasOne<Household>().WithMany().HasForeignKey(x => x.HouseholdId).OnDelete(DeleteBehavior.Restrict);
+        });
         builder.Entity<Ingredient>(entity =>
         {
             entity.Property(x => x.Name).HasMaxLength(100).IsRequired();
             entity.Property(x => x.NormalizedName).HasMaxLength(100).IsRequired();
             entity.HasIndex(x => new { x.HouseholdId, x.NormalizedName }).IsUnique();
             entity.HasAlternateKey(x => new { x.HouseholdId, x.Id });
+            entity.Property(x => x.Amount).HasPrecision(12, 4);
+            entity.ToTable("Ingredients", table => table.HasCheckConstraint("CK_Ingredients_Amount", "[Amount] > 0 AND [Amount] <= 99999999.9999"));
+            entity.HasOne(x => x.Unit).WithMany().HasForeignKey(x => new { x.HouseholdId, x.UnitId })
+                .HasPrincipalKey(x => new { x.HouseholdId, x.Id }).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne<Household>().WithMany().HasForeignKey(x => x.HouseholdId).OnDelete(DeleteBehavior.Restrict);
         });
         builder.Entity<RecipeItem>(entity =>

@@ -197,6 +197,10 @@ namespace HomeHub.Web.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(12, 4)
+                        .HasColumnType("decimal(12,4)");
+
                     b.Property<Guid>("HouseholdId")
                         .HasColumnType("uniqueidentifier");
 
@@ -210,12 +214,47 @@ namespace HomeHub.Web.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<Guid>("UnitId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("HouseholdId", "NormalizedName")
                         .IsUnique();
 
-                    b.ToTable("Ingredients");
+                    b.HasIndex("HouseholdId", "UnitId");
+
+                    b.ToTable("Ingredients", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Ingredients_Amount", "[Amount] > 0 AND [Amount] <= 99999999.9999");
+                        });
+                });
+
+            modelBuilder.Entity("HomeHub.Web.Modules.MealPlanner.IngredientUnit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("HouseholdId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HouseholdId", "NormalizedName")
+                        .IsUnique();
+
+                    b.ToTable("IngredientUnits");
                 });
 
             modelBuilder.Entity("HomeHub.Web.Modules.MealPlanner.Meal", b =>
@@ -506,6 +545,24 @@ namespace HomeHub.Web.Data.Migrations
                 });
 
             modelBuilder.Entity("HomeHub.Web.Modules.MealPlanner.Ingredient", b =>
+                {
+                    b.HasOne("HomeHub.Web.Modules.Households.Household", null)
+                        .WithMany()
+                        .HasForeignKey("HouseholdId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HomeHub.Web.Modules.MealPlanner.IngredientUnit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("HouseholdId", "UnitId")
+                        .HasPrincipalKey("HouseholdId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Unit");
+                });
+
+            modelBuilder.Entity("HomeHub.Web.Modules.MealPlanner.IngredientUnit", b =>
                 {
                     b.HasOne("HomeHub.Web.Modules.Households.Household", null)
                         .WithMany()

@@ -10,7 +10,7 @@
 <PageTitle>@(recipe is null ? "Meal recipe" : recipe.Name + " recipe")</PageTitle>
 <h1>@(recipe is null ? "Meal recipe" : recipe.Name + " recipe")</h1>
 <p><a href="/Meals">Back to meal list</a> · <a href="/Ingredients">Manage ingredients</a></p>
-<p>Quantities are packets or items: Pasta 0.5 means half a packet. Use up to four decimal places.</p>
+<p>Enter recipe quantities in each ingredient's unit. For Pasta with a 500-gram packet, a quantity of 250 grams uses half the packet. Use up to four decimal places.</p>
 @if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
 @if (notice is not null) { <p role="status">@notice</p> }
 <fieldset class="recipe-controls" disabled="@(!interactiveReady || busy)" aria-label="Recipe management">
@@ -29,9 +29,13 @@
                 }
             </InputSelect>
             <ValidationMessage For="() => input.IngredientId" />
-            <label for="recipe-quantity">Quantity</label>
+            <label for="recipe-quantity">Quantity@(SelectedIngredient is { } selected ? $" ({selected.Unit})" : "")</label>
             <InputText id="recipe-quantity" @bind-Value="input.Quantity" inputmode="decimal" maxlength="32" aria-describedby="quantity-help" disabled="@busy" />
-            <small id="quantity-help">For example @Format(0.5m) for half a packet; @Format(1.5m) for one and a half.</small>
+            <small id="quantity-help">
+                @if (SelectedIngredient is { } ingredient) {
+                    <span>Amount per package: @Format(ingredient.Amount) @ingredient.Unit. Enter the recipe's amount in @ingredient.Unit, for example @Format(0.5m).</span>
+                } else { <span>Choose an ingredient to see its unit.</span> }
+            </small>
             <ValidationMessage For="() => input.Quantity" />
             <div class="actions"><BbButton Type="ButtonType.Submit" Disabled="busy">@(editing ? "Save quantity" : "Add ingredient")</BbButton>
             @if (editing) { <BbButton OnClick="Cancel" Disabled="busy">Cancel edit</BbButton> }</div>
@@ -40,7 +44,7 @@
     @if (recipe.Items.Count == 0) { <p>This meal has no recipe items yet. Add an ingredient and quantity above.</p> }
     @foreach (var item in recipe.Items) {
         <div class="card" @key="item.IngredientId">
-            <strong>@item.Name</strong><span>Quantity: @Format(item.Quantity)</span>
+            <strong>@item.Name</strong><span>Quantity: @Format(item.Quantity) @item.Unit</span>
             <div class="actions"><BbButton OnClick="() => Edit(item)" Disabled="busy">Edit quantity</BbButton>
             <BbButton OnClick="() => Remove(item.IngredientId)" Disabled="busy">Remove</BbButton></div>
         </div>
@@ -57,6 +61,7 @@
     private ManageRecipe.Recipe? recipe;
     private IReadOnlyList<ManageIngredients.Item> ingredients = [];
     private ItemInput input = new();
+    private ManageIngredients.Item? SelectedIngredient => ingredients.FirstOrDefault(x => x.Id == input.IngredientId);
     private sealed class ItemInput
     {
         [Required(ErrorMessage = "Choose an ingredient.")] public Guid? IngredientId { get; set; }
@@ -85,7 +90,8 @@
         editing = true; error = null; notice = null;
     }
     private async Task Save() => await Run(async () => {
-        await UseCase.SaveAsync((await Auth.GetAuthenticationStateAsync()).User, MealId, input.IngredientId!.Value, input.Quantity, editing);
+        if (SelectedIngredient is not { } selected) throw new HouseholdRuleException("Refresh the recipe and choose an ingredient.");
+        await UseCase.SaveAsync((await Auth.GetAuthenticationStateAsync()).User, MealId, selected.Id, input.Quantity, editing, expectedUnitId: selected.UnitId);
         Cancel(); await Load(); notice = "Recipe saved.";
     });
     private async Task Remove(Guid ingredientId) => await Run(async () => {

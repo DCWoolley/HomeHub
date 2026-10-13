@@ -14,7 +14,7 @@ HomeHub helps families organise home and family life. The [Restart project](http
 - Household navigation collapses to a compact menu rail on desktop and starts closed on screens up to 760px. On mobile, choosing a link closes the menu. Native disclosure controls support keyboard use and static SSR account settings; Escape closes an open menu and returns focus to its toggle.
 - The shared theme uses saturated violet with teal, pink, and amber accents, including Blueprint components.
 - Household members can create, view, rename, and delete meals at /Meals. A name is all that is required; recipes are optional. Duplicate names are prevented within each household. Deleting an in-use meal warns that it will also be removed from all plans and deletes its recipe items while keeping reusable ingredients.
-- Household members manage named ingredients at /Ingredients and each meal's recipe at /Meals/{mealId}/Recipe. Recipe items reference reusable ingredients with positive decimal quantities: Pasta 0.5 means half a packet. Quantities support four decimal places, up to 99,999,999.9999, and are not rounded to whole packets. Ingredients used in recipes cannot be deleted until removed from those recipes. Shopping-list generation, pack-size conversions, and serving scaling remain future work.
+- Household members manage ingredients with a name, unit, and amount per package at /Ingredients. Units come from a household pick list; members can add custom units. Each meal's recipe at /Meals/{mealId}/Recipe uses the ingredient's unit directly: Pasta with unit grams and amount 500 can have a recipe quantity of 250 grams. Amounts and quantities support four decimal places, up to 99,999,999.9999. Ingredients used in recipes cannot be deleted or have their units changed until removed from those recipes; package amount changes preserve recipe quantities. Existing ingredients migrate to 1 packet without changing recipe quantities. Shopping-list generation, unit conversion, and serving scaling remain future work.
 - The planner at /MealPlanner is one reusable Monday–Sunday schedule with multiple meals for breakfast, lunch, and dinner. It has no calendar dates or previous/next weeks and stays the same until edited. Members can select, replace, and remove individual meals from the shared list, or create a meal directly in a planner slot. Matching names reuse an existing meal. Cleaning schedules, budget, calendar, floors, and rooms remain future work.
 - Dinner is the only enabled slot by default. Household members can enable or disable breakfast, lunch, and dinner at /MealPlanner/Settings for the whole schedule. Disabled slots keep their selections for when they are enabled again.
 
@@ -46,6 +46,7 @@ Modules/
   MealPlanner/
     ManageMeals/
     ManageIngredients/
+    ManageIngredientUnits/
     ManageRecipe/
     PlanWeek/
     CreateMealFromPlanner/
@@ -103,8 +104,8 @@ docker --context serverone compose --env-file .env.unraid ps
 
 Liveness is /health/live. Readiness is /health/ready and checks database connectivity and pending migrations. Check both container healthy and readiness Healthy before reporting deployment success.
 
-For a full deployment smoke test, `./scripts/Test-Deployment.ps1 -VerifyRegistration` exercises account creation, invitation joining, login, and authenticated routes, including ingredient/recipe rendering with a 0.5 quantity. It uses unique synthetic accounts, a synthetic household, and synthetic meal/ingredient rows, then cleans up only those records transactionally. It requires Windows sqlcmd and the configured application SQL login. SQL commands enable quoted identifiers to support filtered indexes.
+For a full deployment smoke test, `./scripts/Test-Deployment.ps1 -VerifyRegistration` exercises account creation, invitation joining, login, and authenticated routes, including a 500-gram ingredient and recipe quantity of 250 grams. It uses unique synthetic accounts, a synthetic household, and synthetic meal/ingredient/unit rows, then cleans up only those records transactionally. It requires Windows sqlcmd and the configured application SQL login. SQL commands enable quoted identifiers to support filtered indexes.
 
-Add `-VerifyBrowser` to that command to exercise live ingredient CRUD and recipe decimal editing, reload, duplicate/precision validation, deletion guards, and mobile layout. This optional check requires Node.js, the Playwright package (on the module path), and installed Microsoft Edge. It uses only the synthetic test household and always cleans up its data. Set `HOMEHUB_BROWSER_ARTIFACTS` to an existing directory to save desktop/mobile screenshots.
+Add `-VerifyBrowser` to that command to exercise custom unit creation, ingredient amounts, unit-based recipe decimal editing, reload, duplicate/precision validation, unit-change/deletion guards, and mobile layout. This optional check requires Node.js, the Playwright package (on the module path), and installed Microsoft Edge. It uses only the synthetic test household and always cleans up its data. Set `HOMEHUB_BROWSER_ARTIFACTS` to an existing directory to save desktop/mobile screenshots.
 
 `scripts/Reset-HomeHubDatabase.ps1` is the guarded one-time legacy reset utility, not an update command. It refuses to run after the InitialRestart migration and checks create-database permission before deleting anything. It targets only the exact HomeHub database. Routine updates preserve all application data.

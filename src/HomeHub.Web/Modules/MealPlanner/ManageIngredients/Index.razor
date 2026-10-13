@@ -1,0 +1,72 @@
+@page "/Ingredients"
+@attribute [Authorize]
+@layout AppLayout
+@using HomeHub.Web.Modules.Households
+@inject ManageIngredients UseCase
+@inject AuthenticationStateProvider Auth
+<PageTitle>Ingredients</PageTitle>
+<h1>Your ingredients</h1>
+<p>Keep a shared list of ingredients to use in your meal recipes.</p>
+<p><a href="/Meals">Open meal list</a></p>
+<fieldset class="ingredient-controls" disabled="@(!interactiveReady || busy)" aria-label="Ingredient management">
+@if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
+@if (notice is not null) { <p role="status">@notice</p> }
+<EditForm Model="input" OnValidSubmit="Save" FormName="ingredient">
+    <DataAnnotationsValidator /><ValidationSummary />
+    <label for="ingredient-name">@(input.Id is null ? "New ingredient name" : "Edit ingredient name")</label>
+    <InputText id="ingredient-name" @bind-Value="input.Name" maxlength="100" disabled="@busy" />
+    <div class="actions"><BbButton Type="ButtonType.Submit" Disabled="busy">Save ingredient</BbButton>
+    @if (input.Id is not null) { <BbButton OnClick="Cancel" Disabled="busy">Cancel edit</BbButton> }
+    <BbButton OnClick="Refresh" Disabled="busy">Refresh list</BbButton></div>
+</EditForm>
+@if (ingredients.Count == 0) { <p>No ingredients yet. Add your first ingredient above.</p> }
+@foreach (var ingredient in ingredients) {
+    <div class="card" @key="ingredient.Id"><strong>@ingredient.Name</strong>
+        <div class="actions"><BbButton OnClick="() => Edit(ingredient)" Disabled="busy">Edit</BbButton>
+        <BbButton OnClick="() => Preview(ingredient)" Disabled="busy">Delete</BbButton></div>
+    </div>
+}
+@if (pending is not null) {
+    <section class="alert" aria-label="Confirm ingredient deletion">
+        <p>Delete <strong>@pending.Name</strong> from your ingredient list? Ingredients used in recipes must first be removed from those recipes.</p>
+        <div class="actions"><BbButton OnClick="Delete" Disabled="busy">Confirm deletion</BbButton>
+        <BbButton OnClick="() => pending = null" Disabled="busy">Cancel deletion</BbButton></div>
+    </section>
+}
+</fieldset>
+@code {
+    private bool interactiveReady;
+    private ManageIngredients.Request input = new();
+    private IReadOnlyList<ManageIngredients.Item> ingredients = [];
+    private ManageIngredients.Item? pending;
+    private string? error;
+    private string? notice;
+    private bool busy;
+    protected override async Task OnInitializedAsync() => await Refresh();
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender) { interactiveReady = true; StateHasChanged(); }
+    }
+    private async Task Refresh() => await Run(async () => ingredients = await UseCase.ListAsync((await Auth.GetAuthenticationStateAsync()).User));
+    private void Edit(ManageIngredients.Item ingredient) { input = new() { Id = ingredient.Id, Name = ingredient.Name }; pending = null; error = null; notice = null; }
+    private void Preview(ManageIngredients.Item ingredient) { pending = ingredient; error = null; notice = null; }
+    private void Cancel() => input = new();
+    private async Task Save() => await Run(async () => {
+        var actor = (await Auth.GetAuthenticationStateAsync()).User;
+        await UseCase.SaveAsync(actor, input);
+        Cancel(); pending = null; ingredients = await UseCase.ListAsync(actor); notice = "Ingredient saved.";
+    });
+    private async Task Delete() => await Run(async () => {
+        if (pending is null) return;
+        var actor = (await Auth.GetAuthenticationStateAsync()).User;
+        await UseCase.DeleteAsync(actor, pending.Id);
+        pending = null; Cancel(); ingredients = await UseCase.ListAsync(actor); notice = "Ingredient deleted.";
+    });
+    private async Task Run(Func<Task> action)
+    {
+        if (busy) return; busy = true; error = null; notice = null;
+        try { await action(); }
+        catch (HouseholdRuleException ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+}

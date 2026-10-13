@@ -12,12 +12,32 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<HouseholdMembership> HouseholdMemberships => Set<HouseholdMembership>();
     public DbSet<HouseholdInvitation> HouseholdInvitations => Set<HouseholdInvitation>();
     public DbSet<Meal> Meals => Set<Meal>();
+    public DbSet<Ingredient> Ingredients => Set<Ingredient>();
+    public DbSet<RecipeItem> RecipeItems => Set<RecipeItem>();
     public DbSet<PlannedMeal> PlannedMeals => Set<PlannedMeal>();
     public DbSet<MealPlannerSettings> MealPlannerSettings => Set<MealPlannerSettings>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+        builder.Entity<Ingredient>(entity =>
+        {
+            entity.Property(x => x.Name).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.NormalizedName).HasMaxLength(100).IsRequired();
+            entity.HasIndex(x => new { x.HouseholdId, x.NormalizedName }).IsUnique();
+            entity.HasAlternateKey(x => new { x.HouseholdId, x.Id });
+            entity.HasOne<Household>().WithMany().HasForeignKey(x => x.HouseholdId).OnDelete(DeleteBehavior.Restrict);
+        });
+        builder.Entity<RecipeItem>(entity =>
+        {
+            entity.HasKey(x => new { x.HouseholdId, x.MealId, x.IngredientId });
+            entity.Property(x => x.Quantity).HasPrecision(12, 4);
+            entity.ToTable("RecipeItems", table => table.HasCheckConstraint("CK_RecipeItems_Quantity", "[Quantity] > 0 AND [Quantity] <= 99999999.9999"));
+            entity.HasOne<Meal>().WithMany().HasForeignKey(x => new { x.HouseholdId, x.MealId })
+                .HasPrincipalKey(x => new { x.HouseholdId, x.Id }).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.Ingredient).WithMany().HasForeignKey(x => new { x.HouseholdId, x.IngredientId })
+                .HasPrincipalKey(x => new { x.HouseholdId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        });
         builder.Entity<MealPlannerSettings>(entity =>
         {
             entity.HasKey(x => x.HouseholdId);

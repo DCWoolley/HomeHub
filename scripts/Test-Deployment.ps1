@@ -1,4 +1,4 @@
-param([string]$BaseUri = 'http://serverone:5293', [switch]$VerifyRegistration)
+param([string]$BaseUri = 'http://serverone:5293', [switch]$VerifyRegistration, [switch]$VerifyBrowser)
 $ErrorActionPreference = 'Stop'
 function Assert-Condition([bool]$Condition, [string]$Message) { if (-not $Condition) { throw $Message } }
 Assert-Condition ((Invoke-RestMethod "$BaseUri/health/live") -eq 'Healthy') 'Liveness failed.'
@@ -55,22 +55,34 @@ try {
         'Input.ConfirmPassword'=$testPassword; 'Input.Choice'='Join'; 'Input.InvitationCode'=$invitationCode
     }
     Assert-Condition ($joined.Content -match [regex]::Escape($householdName)) 'Invitation registration failed.'
-    foreach ($path in @('/Dashboard','/Meals','/MealPlanner','/MealPlanner/Settings','/Household','/Household/Members','/Household/Accounts','/Household/Invitations','/Household/Ownership','/Household/Leave','/Account/Manage')) {
+    $recipeMealId = [Guid]::NewGuid().ToString()
+    $recipeIngredientId = [Guid]::NewGuid().ToString()
+    Invoke-TestSql "SET XACT_ABORT ON; BEGIN TRANSACTION; DECLARE @h uniqueidentifier=(SELECT Id FROM Households WHERE Name=N'$householdName'); IF @h IS NULL THROW 50000,'Test household missing.',1; INSERT INTO Meals (Id,HouseholdId,Name,NormalizedName) VALUES ('$recipeMealId',@h,N'Verification pasta bake',N'VERIFICATION PASTA BAKE'); INSERT INTO Ingredients (Id,HouseholdId,Name,NormalizedName) VALUES ('$recipeIngredientId',@h,N'Verification pasta',N'VERIFICATION PASTA'); INSERT INTO RecipeItems (HouseholdId,MealId,IngredientId,Quantity) VALUES (@h,'$recipeMealId','$recipeIngredientId',0.5); COMMIT TRANSACTION;" | Out-Null
+    $recipePath = "/Meals/$recipeMealId/Recipe"
+    foreach ($path in @('/Dashboard','/Meals','/Ingredients',$recipePath,'/MealPlanner','/MealPlanner/Settings','/Household','/Household/Members','/Household/Accounts','/Household/Invitations','/Household/Ownership','/Household/Leave','/Account/Manage')) {
         $page = Invoke-WebRequest "$BaseUri$path" -WebSession $ownerSession
         Assert-Condition ($page.StatusCode -eq 200) "Authenticated route failed: $path"
-        if ($path -in @('/Meals', '/MealPlanner', '/MealPlanner/Settings')) {
+        if ($path -in @('/Meals', '/Ingredients', $recipePath, '/MealPlanner', '/MealPlanner/Settings')) {
             Assert-Condition ($page.Content -match '<!--Blazor:\{"type":"server"') "Interactive server marker missing: $path"
+        }
+        if ($path -eq $recipePath) {
+            Assert-Condition ($page.Content -match 'Verification pasta' -and $page.Content -match 'Quantity: 0\.5') 'Recipe names and decimal quantity did not render.'
         }
     }
     $loginSession = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
     $login = Submit-Form $loginSession '/Account/Login' 'login' @{ 'Input.Email'=$ownerEmail; 'Input.Password'=$testPassword; 'Input.RememberMe'='false' }
     Assert-Condition ($login.Content -match 'Welcome home') 'Login/dashboard smoke test failed.'
-    Write-Output 'Production registration, invitation joining, login, dashboard, and protected routes verified.'
+    if ($VerifyBrowser) {
+        $browserCookies = @($ownerSession.Cookies.GetCookies([Uri]$BaseUri) | ForEach-Object { @{ name=$_.Name; value=$_.Value; url=$BaseUri.TrimEnd('/') + '/'; httpOnly=$_.HttpOnly; secure=$_.Secure } })
+        @{ baseUri=$BaseUri; cookies=$browserCookies; artifacts=$env:HOMEHUB_BROWSER_ARTIFACTS } | ConvertTo-Json -Depth 5 -Compress | & node (Join-Path $PSScriptRoot 'Test-RecipesBrowser.cjs')
+        Assert-Condition ($LASTEXITCODE -eq 0) 'Browser recipe verification failed.'
+    }
+    Write-Output 'Production registration, invitation joining, login, ingredient/recipe rendering, decimal quantity, dashboard, and protected routes verified.'
 }
 finally {
     try {
         # Cleanup only this unique synthetic household and its two synthetic identities.
-        Invoke-TestSql "SET XACT_ABORT ON; BEGIN TRANSACTION; DECLARE @h uniqueidentifier=(SELECT Id FROM Households WHERE Name=N'$householdName'); IF @h IS NOT NULL BEGIN IF EXISTS(SELECT 1 FROM HouseholdMemberships m JOIN AspNetUsers u ON m.UserId=u.Id WHERE m.HouseholdId=@h AND u.Email NOT IN(N'$ownerEmail',N'$memberEmail')) THROW 50000,'Unexpected household member; refusing cleanup.',1; DELETE FROM HouseholdInvitations WHERE HouseholdId=@h; DELETE FROM HouseholdMemberships WHERE HouseholdId=@h; DELETE FROM HouseholdMembers WHERE HouseholdId=@h; DELETE FROM Households WHERE Id=@h; END; DELETE FROM AspNetUsers WHERE Email IN(N'$ownerEmail',N'$memberEmail'); COMMIT TRANSACTION;" | Out-Null
+        Invoke-TestSql "SET XACT_ABORT ON; BEGIN TRANSACTION; DECLARE @h uniqueidentifier=(SELECT Id FROM Households WHERE Name=N'$householdName'); IF @h IS NOT NULL BEGIN IF EXISTS(SELECT 1 FROM HouseholdMemberships m JOIN AspNetUsers u ON m.UserId=u.Id WHERE m.HouseholdId=@h AND u.Email NOT IN(N'$ownerEmail',N'$memberEmail')) THROW 50000,'Unexpected household member; refusing cleanup.',1; DELETE FROM RecipeItems WHERE HouseholdId=@h; DELETE FROM MealScheduleEntries WHERE HouseholdId=@h; DELETE FROM Meals WHERE HouseholdId=@h; DELETE FROM Ingredients WHERE HouseholdId=@h; DELETE FROM HouseholdInvitations WHERE HouseholdId=@h; DELETE FROM HouseholdMemberships WHERE HouseholdId=@h; DELETE FROM HouseholdMembers WHERE HouseholdId=@h; DELETE FROM Households WHERE Id=@h; END; DELETE FROM AspNetUsers WHERE Email IN(N'$ownerEmail',N'$memberEmail'); COMMIT TRANSACTION;" | Out-Null
         Write-Output 'Temporary verification accounts and household removed.'
     }
     finally { [Environment]::SetEnvironmentVariable('SQLCMDPASSWORD', $previousPassword, 'Process') }

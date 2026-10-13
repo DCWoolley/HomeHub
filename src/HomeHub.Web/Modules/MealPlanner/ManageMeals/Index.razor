@@ -6,7 +6,7 @@
 @inject AuthenticationStateProvider Auth
 <PageTitle>Meal list</PageTitle>
 <h1>Your meals</h1>
-<p>Manage the meals shared by your household. Each meal needs just a name.</p>
+<p>Manage the meals shared by your household. Each meal needs just a name; add a recipe whenever you are ready.</p>
 <p><a href="/MealPlanner">Open meal planner</a></p>
 <fieldset class="meal-controls" disabled="@(!interactiveReady)" aria-label="Meal management">
 @if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
@@ -20,13 +20,14 @@
 @if (meals.Count == 0) { <p>No meals yet. Add your first meal above.</p> }
 @foreach (var meal in meals) {
     <div class="card" @key="meal.Id"><strong>@meal.Name</strong>
-        <div class="actions"><BbButton OnClick="() => Edit(meal)" Disabled="busy">Edit</BbButton>
+        <div class="actions"><a href="@($"/Meals/{meal.Id}/Recipe")">Recipe</a><BbButton OnClick="() => Edit(meal)" Disabled="busy">Edit</BbButton>
         <BbButton OnClick="() => Preview(meal.Id)" Disabled="busy">Delete</BbButton></div>
     </div>
 }
 @if (pending is not null) {
     <section class="alert" aria-label="Confirm meal deletion">
         <p>Delete <strong>@pending.Name</strong> from your meal list?</p>
+        <p>Its recipe items will also be deleted. Ingredients will remain in your ingredient list.</p>
         @if (pending.PlannedOccurrences > 0) {
             <p role="alert">This meal is used @pending.PlannedOccurrences time(s) in your schedule. Deleting it will also remove it from every slot in the schedule.</p>
         }

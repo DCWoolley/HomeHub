@@ -191,6 +191,33 @@ namespace HomeHub.Web.Data.Migrations
                     b.ToTable("HouseholdMemberships");
                 });
 
+            modelBuilder.Entity("HomeHub.Web.Modules.MealPlanner.Ingredient", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("HouseholdId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HouseholdId", "NormalizedName")
+                        .IsUnique();
+
+                    b.ToTable("Ingredients");
+                });
+
             modelBuilder.Entity("HomeHub.Web.Modules.MealPlanner.Meal", b =>
                 {
                     b.Property<Guid>("Id")
@@ -263,6 +290,31 @@ namespace HomeHub.Web.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("MealScheduleEntries", (string)null);
+                });
+
+            modelBuilder.Entity("HomeHub.Web.Modules.MealPlanner.RecipeItem", b =>
+                {
+                    b.Property<Guid>("HouseholdId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("MealId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("IngredientId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(12, 4)
+                        .HasColumnType("decimal(12,4)");
+
+                    b.HasKey("HouseholdId", "MealId", "IngredientId");
+
+                    b.HasIndex("HouseholdId", "IngredientId");
+
+                    b.ToTable("RecipeItems", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_RecipeItems_Quantity", "[Quantity] > 0 AND [Quantity] <= 99999999.9999");
+                        });
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -453,6 +505,15 @@ namespace HomeHub.Web.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("HomeHub.Web.Modules.MealPlanner.Ingredient", b =>
+                {
+                    b.HasOne("HomeHub.Web.Modules.Households.Household", null)
+                        .WithMany()
+                        .HasForeignKey("HouseholdId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("HomeHub.Web.Modules.MealPlanner.Meal", b =>
                 {
                     b.HasOne("HomeHub.Web.Modules.Households.Household", null)
@@ -481,6 +542,25 @@ namespace HomeHub.Web.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Meal");
+                });
+
+            modelBuilder.Entity("HomeHub.Web.Modules.MealPlanner.RecipeItem", b =>
+                {
+                    b.HasOne("HomeHub.Web.Modules.MealPlanner.Ingredient", "Ingredient")
+                        .WithMany()
+                        .HasForeignKey("HouseholdId", "IngredientId")
+                        .HasPrincipalKey("HouseholdId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HomeHub.Web.Modules.MealPlanner.Meal", null)
+                        .WithMany()
+                        .HasForeignKey("HouseholdId", "MealId")
+                        .HasPrincipalKey("HouseholdId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Ingredient");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

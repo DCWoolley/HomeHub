@@ -16,6 +16,7 @@ These instructions apply to the entire repository.
 - Revalidate current membership on every household operation. Accounts have at most one household; only the owner invites/removes account members or transfers ownership. Everyone can manage profiles without logins.
 - Registration must atomically create an account with household membership. Invitations are revocable, single-use, and expire after seven days.
 - Keep credentials and sensitive personal data out of source and logs. Do not log invitation codes.
+- Ingredients are reusable household-owned names; recipe items reference an existing meal and ingredient in that household. Quantities are positive decimals with at most four decimal places (SQL decimal(12,4)), representing packets/items. Reject excess precision rather than rounding. Block deletion of referenced ingredients; meal deletion cascades recipe items while preserving ingredients. Shopping-list generation remains future work.
 
 ## Verification
 

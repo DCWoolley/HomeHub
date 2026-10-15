@@ -7,6 +7,7 @@
 @inject ManageMeals UseCase
 @inject AuthenticationStateProvider Auth
 @inject NavigationManager Navigation
+@inject ILogger<Index> Logger
 
 <PageTitle>Meal list</PageTitle>
 <div class="catalog-heading"><div><p class="eyebrow">Your household cookbook</p><h1>Your meals</h1><p>Favourite meals, with recipes ready when you need them.</p></div><a href="/MealPlanner">Meal planner →</a></div>
@@ -66,6 +67,9 @@
     private async Task Run(Func<Task> action)
     {
         if (busy) return; busy = true; error = null;
-        try { await action(); } catch (HouseholdRuleException ex) { error = ex.Message; } finally { busy = false; }
+        try { await action(); }
+        catch (HouseholdRuleException ex) { error = ex.Message; }
+        catch (Exception ex) { Logger.LogError(ex, "Could not update meal list."); error = "Could not update the list. Please refresh the page and try again."; }
+        finally { busy = false; }
     }
 }

@@ -2,9 +2,21 @@
 const { chromium, expect } = require('playwright/test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 async function main() {
     let input = ''; for await (const chunk of process.stdin) input += chunk;
     const settings = JSON.parse(input);
+    // Failure injection is available only on this task's disposable Windows test databases.
+    async function rejectWrites(table, checkFailure) {
+        if (!settings.database) return;
+        assert.match(settings.baseUri, /^http:\/\/(127\.0\.0\.1|localhost):\d+$/);
+        assert.match(settings.database, /^HomeHub_RestartTest_[a-f0-9]{32}$/);
+        assert.ok(['Meals', 'Ingredients'].includes(table));
+        const sql = query => execFileSync('sqlcmd', ['-S', '(localdb)\\MSSQLLocalDB', '-E', '-C', '-I', '-d', settings.database, '-b', '-Q', query], { stdio: 'pipe' });
+        sql(`CREATE OR ALTER TRIGGER HomeHub_BrowserRejectWrite ON dbo.${table} AFTER INSERT, UPDATE AS BEGIN THROW 51000, 'Synthetic browser-test write failure', 1; END`);
+        try { await checkFailure(); }
+        finally { sql('DROP TRIGGER IF EXISTS dbo.HomeHub_BrowserRejectWrite'); }
+    }
     const browser = await chromium.launch({ channel: 'msedge', headless: true });
     let page;
     try {
@@ -42,7 +54,14 @@ async function main() {
         await ingredientDialog.locator('#ingredient-name').fill(pasta); await ingredientDialog.locator('#ingredient-amount').fill('500');
         await ingredientDialog.locator('#ingredient-price').fill('1.001'); await click(ingredientDialog, 'Save ingredient');
         await expect(ingredientDialog.getByRole('alert')).toContainText('two decimal places');
-        await ingredientDialog.locator('#ingredient-price').fill('1.50'); await click(ingredientDialog, 'Save ingredient');
+        await ingredientDialog.locator('#ingredient-price').fill('1.50');
+        await rejectWrites('Ingredients', async () => {
+            await click(ingredientDialog, 'Save ingredient');
+            await expect(ingredientDialog.getByRole('alert')).toContainText('Your entries are still here');
+            await expect(ingredientDialog.locator('#ingredient-name')).toHaveValue(pasta);
+            await expect(ingredientDialog.locator('#ingredient-price')).toHaveValue('1.50');
+        });
+        await click(ingredientDialog, 'Save ingredient');
         await expect(entry(pasta)).toContainText('500 grams'); await expect(entry(pasta)).toContainText('£1.50');
         for (const [value, text] of [['', 'Price unknown'], ['0.00', '£0.00']]) {
             await click(entry(pasta), 'Edit'); await dialog('Edit ingredient').locator('#ingredient-price').fill(value);
@@ -61,6 +80,12 @@ async function main() {
         await expect(mealDialog.locator('#recipe-quantity')).toBeFocused(); await mealDialog.locator('#recipe-quantity').fill('250');
         await click(mealDialog, 'Add to recipe'); await expect(row(pasta)).toBeVisible();
         await expect(mealDialog.getByRole('button').filter({ hasText: pasta })).toBeDisabled();
+        await rejectWrites('Meals', async () => {
+            await click(mealDialog, 'Save meal');
+            await expect(mealDialog.getByRole('alert')).toContainText('Your changes are still here');
+            await expect(mealDialog.locator('#meal-name')).toHaveValue(meal);
+            await expect(row(pasta).getByRole('textbox')).toHaveValue('250');
+        });
         await click(mealDialog, 'Save meal'); await expect(entry(meal)).toBeVisible(); await page.reload();
         await click(entry(meal), 'Edit'); mealDialog = dialog('Edit meal'); await expect(row(pasta).getByRole('textbox')).toHaveValue('250');
         await row(pasta).getByRole('textbox').fill('0.00001'); await mealDialog.locator('#meal-name').fill('Invalid draft name');

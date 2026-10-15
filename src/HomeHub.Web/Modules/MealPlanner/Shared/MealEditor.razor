@@ -7,6 +7,7 @@
 @inject ManageRecipe Recipes
 @inject ManageIngredients Ingredients
 @inject AuthenticationStateProvider Auth
+@inject ILogger<MealEditor> Logger
 
 <BbDialog Open="true" OpenChanged="HandleOpen">
     <BbDialogContent Class="catalog-dialog meal-dialog" ShowClose="false" CloseOnEscape="false" CloseOnOverlayClick="false" OnEscapeKeyDown="Close">
@@ -25,7 +26,7 @@
         <div hidden="@confirmDiscard">
         <EditForm Model="input" OnValidSubmit="Save" FormName="meal" class="catalog-form">
             <DataAnnotationsValidator /><ValidationSummary />
-            <fieldset disabled="@(busy || loading || loadFailed)">
+            <fieldset disabled="@(!interactiveReady || busy || loading || loadFailed)">
                 <label for="meal-name">Meal name</label>
                 <input id="meal-name" @bind="input.Name" @bind:event="oninput" maxlength="100" data-autofocus />
                 <div class="recipe-heading"><h3>Recipe</h3><span>@rows.Count ingredient@(rows.Count == 1 ? "" : "s")</span></div>
@@ -52,6 +53,7 @@
                     @if (selected is not null) {
                         <div class="quantity-entry"><div><label for="recipe-quantity">Quantity (@selected.Unit)</label><input id="recipe-quantity" @ref="quantityElement" @bind="quantity" @bind:event="oninput" inputmode="decimal" maxlength="32" aria-describedby="quantity-help" /></div><BbButton OnClick="AddRow">Add to recipe</BbButton></div>
                         <small id="quantity-help">@selected.Name · @Format(selected.Amount) @selected.Unit per package. Enter the amount in @selected.Unit, for example @Format(0.5m).</small>
+                        <BbButton Variant="ButtonVariant.Outline" Class="secondary" OnClick="ClearSelection">Cancel selection</BbButton>
                     }
                     <div class="actions"><BbButton Variant="ButtonVariant.Outline" Class="secondary" OnClick="CreateIngredient">Add new ingredient</BbButton></div>
                 </div>
@@ -81,6 +83,7 @@
     private string? error;
     private bool busy;
     private bool loading = true;
+    private bool interactiveReady;
     private bool loadFailed;
     private bool confirmDiscard;
     private bool focusDiscard;
@@ -111,10 +114,12 @@
             }
             ingredients = await Ingredients.ListAsync(actor);
         } catch (HouseholdRuleException ex) { error = ex.Message; loadFailed = true; }
+        catch (Exception ex) { Logger.LogError(ex, "Could not load meal editor."); error = "Could not load this meal. Close the editor and try again."; loadFailed = true; }
         finally { loading = false; original = Snapshot; }
     }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender) { interactiveReady = true; StateHasChanged(); }
         if (focusQuantity) { focusQuantity = false; await quantityElement.FocusAsync(); }
         if (focusSearch) { focusSearch = false; await searchElement.FocusAsync(); }
         if (focusDiscard) { focusDiscard = false; await keepEditingElement.FocusAsync(); }
@@ -132,6 +137,7 @@
     {
         selected = ingredient; quantity = ""; error = null; focusQuantity = true;
     }
+    private void ClearSelection() { selected = null; quantity = ""; focusSearch = true; }
     private void AddRow()
     {
         try {
@@ -146,14 +152,18 @@
     private Task IngredientClosed() { ingredientInput = null; return Task.CompletedTask; }
     private async Task IngredientSaved(Guid id)
     {
-        ingredients = await Ingredients.ListAsync((await Auth.GetAuthenticationStateAsync()).User);
         ingredientInput = null;
-        var added = ingredients.Single(x => x.Id == id);
-        search = added.Name; Select(added);
+        try {
+            ingredients = await Ingredients.ListAsync((await Auth.GetAuthenticationStateAsync()).User);
+            var added = ingredients.SingleOrDefault(x => x.Id == id);
+            if (added is null) throw new HouseholdRuleException("The saved ingredient is no longer available. Reopen the meal to refresh your ingredients.");
+            search = added.Name; Select(added);
+        } catch (HouseholdRuleException ex) { error = ex.Message; }
+        catch (Exception ex) { Logger.LogError(ex, "Could not reload ingredients after creation."); error = "Ingredient saved, but the list could not be refreshed. Your meal draft is still here. Try again later."; }
     }
     private async Task Save()
     {
-        if (busy || loading) return;
+        if (!interactiveReady || busy || loading) return;
         if (selected is not null) { error = "Add the selected ingredient to the recipe before saving."; return; }
         busy = true; error = null;
         try {
@@ -161,6 +171,7 @@
             await Meals.SaveAsync((await Auth.GetAuthenticationStateAsync()).User, input);
             await Saved.InvokeAsync();
         } catch (HouseholdRuleException ex) { error = ex.Message; }
+        catch (Exception ex) { Logger.LogError(ex, "Could not save meal draft."); error = "Could not save the meal. Your changes are still here. Please try again."; }
         finally { busy = false; }
     }
 }

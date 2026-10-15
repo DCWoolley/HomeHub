@@ -6,6 +6,7 @@
 @using System.Globalization
 @inject ManageIngredients UseCase
 @inject AuthenticationStateProvider Auth
+@inject ILogger<Index> Logger
 
 <PageTitle>Ingredients</PageTitle>
 <div class="catalog-heading"><div><p class="eyebrow">Your household cookbook</p><h1>Your ingredients</h1><p>Package details, ready for every recipe.</p></div><a href="/Meals">Meal list →</a></div>
@@ -55,6 +56,9 @@
     private async Task Run(Func<Task> action)
     {
         if (busy) return; busy = true; error = null;
-        try { await action(); } catch (HouseholdRuleException ex) { error = ex.Message; } finally { busy = false; }
+        try { await action(); }
+        catch (HouseholdRuleException ex) { error = ex.Message; }
+        catch (Exception ex) { Logger.LogError(ex, "Could not update ingredient list."); error = "Could not update the list. Please refresh the page and try again."; }
+        finally { busy = false; }
     }
 }

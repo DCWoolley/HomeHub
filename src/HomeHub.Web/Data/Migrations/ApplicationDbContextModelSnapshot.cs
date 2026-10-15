@@ -214,6 +214,10 @@ namespace HomeHub.Web.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<decimal?>("PackagePrice")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
                     b.Property<Guid>("UnitId")
                         .HasColumnType("uniqueidentifier");
 
@@ -227,6 +231,8 @@ namespace HomeHub.Web.Data.Migrations
                     b.ToTable("Ingredients", null, t =>
                         {
                             t.HasCheckConstraint("CK_Ingredients_Amount", "[Amount] > 0 AND [Amount] <= 99999999.9999");
+
+                            t.HasCheckConstraint("CK_Ingredients_PackagePrice", "[PackagePrice] IS NULL OR ([PackagePrice] >= 0 AND [PackagePrice] <= 99999999.99)");
                         });
                 });
 

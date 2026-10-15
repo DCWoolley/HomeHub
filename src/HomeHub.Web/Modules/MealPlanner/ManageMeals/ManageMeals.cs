@@ -10,10 +10,13 @@ public sealed class ManageMeals(IDbContextFactory<ApplicationDbContext> factory)
 {
     public sealed record Item(Guid Id, string Name);
     public sealed record Deletion(Guid Id, string Name, int PlannedOccurrences);
+    public sealed record RecipeEntry(Guid IngredientId, Guid UnitId, string Quantity);
     public sealed class Request
     {
         public Guid? Id { get; set; }
         [Required, StringLength(100)] public string Name { get; set; } = "";
+        // Null preserves recipes for existing name-only callers; [] deliberately clears a recipe.
+        public IReadOnlyList<RecipeEntry>? Recipe { get; set; }
     }
 
     public async Task<IReadOnlyList<Item>> ListAsync(ClaimsPrincipal actor, CancellationToken ct = default)
@@ -38,6 +41,27 @@ public sealed class ManageMeals(IDbContextFactory<ApplicationDbContext> factory)
         if (input.Id is null) db.Meals.Add(meal);
         meal.Name = name;
         meal.NormalizedName = normalized;
+        if (input.Recipe is { } recipe)
+        {
+            if (recipe.Select(x => x.IngredientId).Distinct().Count() != recipe.Count)
+                throw new HouseholdRuleException("An ingredient is already in the recipe. Edit its existing quantity instead.");
+            var existing = await db.RecipeItems.Where(x => x.HouseholdId == current.HouseholdId && x.MealId == meal.Id).ToListAsync(ct);
+            foreach (var entry in recipe)
+            {
+                var quantity = IngredientQuantity.Parse(entry.Quantity, "quantity");
+                var ingredient = await ManageIngredients.ManageIngredients.FindAsync(db, current.HouseholdId, entry.IngredientId, ct);
+                if (ingredient.UnitId != entry.UnitId)
+                    throw new HouseholdRuleException("The ingredient's unit changed. Reopen the meal before entering a quantity.");
+                var item = existing.SingleOrDefault(x => x.IngredientId == entry.IngredientId);
+                if (item is null)
+                {
+                    item = new RecipeItem { HouseholdId = current.HouseholdId, MealId = meal.Id, IngredientId = entry.IngredientId };
+                    db.RecipeItems.Add(item);
+                }
+                item.Quantity = quantity;
+            }
+            db.RecipeItems.RemoveRange(existing.Where(x => !recipe.Any(entry => entry.IngredientId == x.IngredientId)));
+        }
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         return meal.Id;

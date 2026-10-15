@@ -8,7 +8,7 @@ namespace HomeHub.Web.Modules.MealPlanner.ManageRecipe;
 public sealed class ManageRecipe(IDbContextFactory<ApplicationDbContext> factory)
 {
     public const decimal MaximumQuantity = IngredientQuantity.Maximum;
-    public sealed record Item(Guid IngredientId, string Name, decimal Quantity, string Unit);
+    public sealed record Item(Guid IngredientId, string Name, decimal Quantity, string Unit, Guid UnitId = default);
     public sealed record Recipe(Guid MealId, string Name, IReadOnlyList<Item> Items);
 
     public Task SaveAsync(ClaimsPrincipal actor, Guid mealId, Guid ingredientId, string quantity,
@@ -23,7 +23,7 @@ public sealed class ManageRecipe(IDbContextFactory<ApplicationDbContext> factory
         var current = await HouseholdAccess.RequireAsync(db, actor, ct: ct);
         var meal = await ManageMeals.ManageMeals.FindAsync(db, current.HouseholdId, mealId, ct);
         var items = await db.RecipeItems.Where(x => x.HouseholdId == current.HouseholdId && x.MealId == mealId)
-            .OrderBy(x => x.Ingredient.Name).Select(x => new Item(x.IngredientId, x.Ingredient.Name, x.Quantity, x.Ingredient.Unit.Name)).ToListAsync(ct);
+            .OrderBy(x => x.Ingredient.Name).Select(x => new Item(x.IngredientId, x.Ingredient.Name, x.Quantity, x.Ingredient.Unit.Name, x.Ingredient.UnitId)).ToListAsync(ct);
         return new(meal.Id, meal.Name, items);
     }
 

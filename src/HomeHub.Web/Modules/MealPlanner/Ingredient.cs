@@ -9,6 +9,7 @@ public sealed class Ingredient
     public Guid UnitId { get; set; }
     public IngredientUnit Unit { get; set; } = null!;
     public decimal Amount { get; set; } = 1m;
+    public decimal? PackagePrice { get; set; }
 }
 
 public sealed class IngredientUnit

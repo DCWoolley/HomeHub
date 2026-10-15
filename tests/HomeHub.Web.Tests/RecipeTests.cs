@@ -173,8 +173,11 @@ public sealed class RecipeTests
             Assert.Contains("disabled", html);
             Assert.Contains("Pasta", html);
         }
-        Assert.Contains("Quantity: 0.5", await browser.GetStringAsync(recipePath));
-        Assert.Contains("Recipe</a>", await browser.GetStringAsync("/Meals"));
+        // The legacy recipe route now hosts the meal list and opens its editor on hydration.
+        Assert.Contains("Your meals", await browser.GetStringAsync(recipePath));
+        var mealList = await browser.GetStringAsync("/Meals");
+        Assert.Contains("Add meal", mealList);
+        Assert.DoesNotContain("id=\"meal-name\"", mealList);
         var accounts = app.Services.GetRequiredService<ManageAccountMembers>();
         var member = (await accounts.ListAsync(actor)).Single(x => !x.IsOwner);
         await accounts.RemoveAsync(actor, member.UserId);

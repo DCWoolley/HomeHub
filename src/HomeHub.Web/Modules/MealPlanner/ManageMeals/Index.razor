@@ -1,75 +1,71 @@
 @page "/Meals"
+@page "/Meals/{MealId:guid}/Recipe"
 @attribute [Authorize]
 @layout AppLayout
 @using HomeHub.Web.Modules.Households
+@using HomeHub.Web.Modules.MealPlanner.Shared
 @inject ManageMeals UseCase
 @inject AuthenticationStateProvider Auth
+@inject NavigationManager Navigation
+
 <PageTitle>Meal list</PageTitle>
-<h1>Your meals</h1>
-<p>Manage the meals shared by your household. Each meal needs just a name; add a recipe whenever you are ready.</p>
-<p><a href="/MealPlanner">Open meal planner</a></p>
-<fieldset class="meal-controls" disabled="@(!interactiveReady)" aria-label="Meal management">
-@if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
-<EditForm Model="input" OnValidSubmit="Save" FormName="meal">
-    <DataAnnotationsValidator /><ValidationSummary />
-    <label for="meal-name">@(input.Id is null ? "New meal name" : "Edit meal name")</label>
-    <InputText id="meal-name" @bind-Value="input.Name" maxlength="100" disabled="@busy" />
-    <div class="actions"><BbButton Type="ButtonType.Submit" Disabled="busy">Save meal</BbButton>
-    @if (input.Id is not null) { <BbButton OnClick="Cancel" Disabled="busy">Cancel edit</BbButton> }</div>
-</EditForm>
-@if (meals.Count == 0) { <p>No meals yet. Add your first meal above.</p> }
-@foreach (var meal in meals) {
-    <div class="card" @key="meal.Id"><strong>@meal.Name</strong>
-        <div class="actions"><a href="@($"/Meals/{meal.Id}/Recipe")">Recipe</a><BbButton OnClick="() => Edit(meal)" Disabled="busy">Edit</BbButton>
-        <BbButton OnClick="() => Preview(meal.Id)" Disabled="busy">Delete</BbButton></div>
-    </div>
-}
-@if (pending is not null) {
-    <section class="alert" aria-label="Confirm meal deletion">
-        <p>Delete <strong>@pending.Name</strong> from your meal list?</p>
-        <p>Its recipe items will also be deleted. Ingredients will remain in your ingredient list.</p>
-        @if (pending.PlannedOccurrences > 0) {
-            <p role="alert">This meal is used @pending.PlannedOccurrences time(s) in your schedule. Deleting it will also remove it from every slot in the schedule.</p>
+<div class="catalog-heading"><div><p class="eyebrow">Your household cookbook</p><h1>Your meals</h1><p>Favourite meals, with recipes ready when you need them.</p></div><a href="/MealPlanner">Meal planner →</a></div>
+<fieldset class="catalog-controls meal-controls" disabled="@(!interactiveReady || busy)" aria-label="Meal management">
+    <div class="catalog-toolbar"><div><label for="meal-search">Search meals</label><input id="meal-search" type="search" @bind="search" @bind:event="oninput" placeholder="Find a meal…" /></div><BbButton OnClick="Add">Add meal</BbButton></div>
+    @if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
+    @if (notice is not null) { <p role="status">@notice</p> }
+    <p class="catalog-count">@meals.Count meal@(meals.Count == 1 ? "" : "s")</p>
+    @if (meals.Count == 0) { <p class="catalog-empty">No meals yet. Add your first meal to get started.</p> }
+    else if (!Filtered.Any()) { <p class="catalog-empty" role="status">No meals match your search.</p> }
+    <div class="catalog-list">
+        @foreach (var meal in Filtered) {
+            <article class="catalog-entry" @key="meal.Id"><div><h2>@meal.Name</h2><p>Edit this meal and its recipe.</p></div><div class="actions"><BbButton Variant="ButtonVariant.Outline" Class="secondary" OnClick="() => Edit(meal.Id)">Edit</BbButton><BbButton Variant="ButtonVariant.Outline" Class="secondary" OnClick="() => Preview(meal.Id)">Delete</BbButton></div></article>
         }
-        <div class="actions"><BbButton OnClick="Delete" Disabled="busy">Confirm deletion</BbButton>
-        <BbButton OnClick="() => pending = null" Disabled="busy">Cancel deletion</BbButton></div>
-    </section>
-}
+    </div>
+    @if (pending is not null) {
+        <section class="alert" aria-label="Confirm meal deletion"><p>Delete <strong>@pending.Name</strong>? Its recipe will be deleted; ingredients stay in your list.</p>
+            @if (pending.PlannedOccurrences > 0) { <p role="alert">This meal is used @pending.PlannedOccurrences time(s) in your schedule. Deleting it will also remove it from every slot in the schedule.</p> }
+            <div class="actions"><BbButton OnClick="Delete">Confirm deletion</BbButton><BbButton Variant="ButtonVariant.Outline" Class="secondary" OnClick="() => pending = null">Cancel deletion</BbButton></div>
+        </section>
+    }
 </fieldset>
+@if (editorOpen) { <MealEditor @key="editorId" MealId="editorId" Saved="Saved" Closed="Closed" /> }
+
 @code {
+    [Parameter] public Guid? MealId { get; set; }
     private bool interactiveReady;
-    private ManageMeals.Request input = new();
+    private bool busy;
+    private bool editorOpen;
+    private Guid? editorId;
+    private string search = "";
+    private string? error;
+    private string? notice;
     private IReadOnlyList<ManageMeals.Item> meals = [];
     private ManageMeals.Deletion? pending;
-    private string? error;
-    private bool busy;
-    protected override async Task OnInitializedAsync() => await Load();
-    protected override void OnAfterRender(bool firstRender)
+    private IEnumerable<ManageMeals.Item> Filtered => meals.Where(x => x.Name.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase));
+    protected override async Task OnParametersSetAsync()
     {
-        if (firstRender) { interactiveReady = true; StateHasChanged(); }
+        await Load();
+        editorId = MealId; editorOpen = MealId is not null;
     }
+    protected override void OnAfterRender(bool firstRender) { if (firstRender) { interactiveReady = true; StateHasChanged(); } }
     private async Task Load() => await Run(async () => meals = await UseCase.ListAsync((await Auth.GetAuthenticationStateAsync()).User));
-    private void Edit(ManageMeals.Item meal) { input = new() { Id = meal.Id, Name = meal.Name }; pending = null; error = null; }
-    private void Cancel() => input = new();
+    private void Add() { editorId = null; editorOpen = true; pending = null; error = notice = null; }
+    private void Edit(Guid id) { editorId = id; editorOpen = true; pending = null; error = notice = null; }
+    private void Closed() { editorOpen = false; editorId = null; if (MealId is not null) Navigation.NavigateTo("/Meals", replace: true); }
+    private async Task Saved() { Closed(); await Load(); notice = "Meal saved."; }
     private async Task Preview(Guid id) => await Run(async () => pending = await UseCase.PreviewDeleteAsync((await Auth.GetAuthenticationStateAsync()).User, id));
-    private async Task Save() => await Run(async () => {
-        await UseCase.SaveAsync((await Auth.GetAuthenticationStateAsync()).User, input);
-        Cancel(); pending = null;
-        meals = await UseCase.ListAsync((await Auth.GetAuthenticationStateAsync()).User);
-    });
     private async Task Delete() => await Run(async () => {
         if (pending is null) return;
         var actor = (await Auth.GetAuthenticationStateAsync()).User;
         var confirmed = pending;
         pending = await UseCase.PreviewDeleteAsync(actor, confirmed.Id);
         await UseCase.DeleteAsync(actor, confirmed.Id, confirmed.PlannedOccurrences > 0);
-        pending = null; Cancel(); meals = await UseCase.ListAsync(actor);
+        pending = null; meals = await UseCase.ListAsync(actor); notice = "Meal deleted.";
     });
     private async Task Run(Func<Task> action)
     {
         if (busy) return; busy = true; error = null;
-        try { await action(); }
-        catch (HouseholdRuleException ex) { error = ex.Message; }
-        finally { busy = false; }
+        try { await action(); } catch (HouseholdRuleException ex) { error = ex.Message; } finally { busy = false; }
     }
 }

@@ -1,0 +1,166 @@
+@using System.Globalization
+@using HomeHub.Web.Modules.Households
+@using HomeHub.Web.Modules.MealPlanner.ManageMeals
+@using HomeHub.Web.Modules.MealPlanner.ManageRecipe
+@using HomeHub.Web.Modules.MealPlanner.ManageIngredients
+@inject ManageMeals Meals
+@inject ManageRecipe Recipes
+@inject ManageIngredients Ingredients
+@inject AuthenticationStateProvider Auth
+
+<BbDialog Open="true" OpenChanged="HandleOpen">
+    <BbDialogContent Class="catalog-dialog meal-dialog" ShowClose="false" CloseOnEscape="false" CloseOnOverlayClick="false" OnEscapeKeyDown="Close">
+        <BbDialogHeader>
+            <BbDialogTitle>@(confirmDiscard ? "Discard meal changes?" : MealId is null ? "Add meal" : "Edit meal")</BbDialogTitle>
+            <BbDialogDescription>A name is all you need. Build the recipe now or come back later.</BbDialogDescription>
+        </BbDialogHeader>
+        @if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
+        @if (loading) { <p role="status">Loading meal…</p> }
+        @if (confirmDiscard) {
+            <section aria-label="Discard confirmation">
+                <p>Your meal and recipe changes will be lost. Ingredients you saved separately will stay in your ingredient list.</p>
+                <div class="actions"><button type="button" class="secondary" @ref="keepEditingElement" @onclick="KeepEditing">Keep editing</button><BbButton OnClick="Discard">Discard changes</BbButton></div>
+            </section>
+        }
+        <div hidden="@confirmDiscard">
+        <EditForm Model="input" OnValidSubmit="Save" FormName="meal" class="catalog-form">
+            <DataAnnotationsValidator /><ValidationSummary />
+            <fieldset disabled="@(busy || loading || loadFailed)">
+                <label for="meal-name">Meal name</label>
+                <input id="meal-name" @bind="input.Name" @bind:event="oninput" maxlength="100" data-autofocus />
+                <div class="recipe-heading"><h3>Recipe</h3><span>@rows.Count ingredient@(rows.Count == 1 ? "" : "s")</span></div>
+                @if (rows.Count == 0) { <p class="recipe-empty">No ingredients yet</p> }
+                @foreach (var row in rows) {
+                    <div class="recipe-row" @key="row.IngredientId">
+                        <div><strong>@row.Name</strong><label for="@($"quantity-{row.IngredientId}")">Quantity (@row.Unit)</label></div>
+                        <input id="@($"quantity-{row.IngredientId}")" @bind="row.Quantity" @bind:event="oninput" inputmode="decimal" maxlength="32" aria-label="@($"Quantity for {row.Name} ({row.Unit})")" />
+                        <BbButton Variant="ButtonVariant.Outline" Class="secondary" OnClick="() => rows.Remove(row)" aria-label="@($"Remove {row.Name}")">Remove</BbButton>
+                    </div>
+                }
+                <div class="recipe-picker">
+                    <label for="recipe-search">Find an ingredient</label>
+                    <input id="recipe-search" type="search" @ref="searchElement" @bind="search" @bind:event="oninput" placeholder="Search your ingredients…" aria-controls="ingredient-results" />
+                    <div id="ingredient-results" class="ingredient-results" aria-label="Ingredient search results">
+                        @if (!Matches.Any()) { <p role="status">No ingredients match. Add a new ingredient below.</p> }
+                        @foreach (var ingredient in Matches) {
+                            var added = rows.Any(x => x.IngredientId == ingredient.Id);
+                            <button type="button" class="ingredient-result unstyled" disabled="@added" @onclick="() => Select(ingredient)">
+                                <span><strong>@ingredient.Name</strong><small>@Format(ingredient.Amount) @ingredient.Unit per package</small></span><span>@(added ? "Already added" : "Select")</span>
+                            </button>
+                        }
+                    </div>
+                    @if (selected is not null) {
+                        <div class="quantity-entry"><div><label for="recipe-quantity">Quantity (@selected.Unit)</label><input id="recipe-quantity" @ref="quantityElement" @bind="quantity" @bind:event="oninput" inputmode="decimal" maxlength="32" aria-describedby="quantity-help" /></div><BbButton OnClick="AddRow">Add to recipe</BbButton></div>
+                        <small id="quantity-help">@selected.Name · @Format(selected.Amount) @selected.Unit per package. Enter the amount in @selected.Unit, for example @Format(0.5m).</small>
+                    }
+                    <div class="actions"><BbButton Variant="ButtonVariant.Outline" Class="secondary" OnClick="CreateIngredient">Add new ingredient</BbButton></div>
+                </div>
+                <div class="actions catalog-footer"><BbButton Type="ButtonType.Submit" Disabled="busy">Save meal</BbButton><BbButton Variant="ButtonVariant.Outline" Class="secondary" OnClick="Close" Disabled="busy">Cancel</BbButton></div>
+            </fieldset>
+        </EditForm>
+        </div>
+        @if (loadFailed) { <BbButton Variant="ButtonVariant.Outline" Class="secondary" OnClick="Close">Close</BbButton> }
+    </BbDialogContent>
+</BbDialog>
+@if (ingredientInput is not null) {
+    <IngredientEditor Input="ingredientInput" Inline="true" Saved="IngredientSaved" Closed="IngredientClosed" />
+}
+
+@code {
+    [Parameter] public Guid? MealId { get; set; }
+    [Parameter] public EventCallback Saved { get; set; }
+    [Parameter] public EventCallback Closed { get; set; }
+    private readonly ManageMeals.Request input = new();
+    private readonly List<DraftRow> rows = [];
+    private IReadOnlyList<ManageIngredients.Item> ingredients = [];
+    private ManageIngredients.Item? selected;
+    private ManageIngredients.Request? ingredientInput;
+    private string search = "";
+    private string quantity = "";
+    private string original = "";
+    private string? error;
+    private bool busy;
+    private bool loading = true;
+    private bool loadFailed;
+    private bool confirmDiscard;
+    private bool focusDiscard;
+    private bool focusQuantity;
+    private bool focusSearch;
+    private ElementReference quantityElement;
+    private ElementReference keepEditingElement;
+    private IEnumerable<ManageIngredients.Item> Matches => ingredients.Where(x => x.Name.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase));
+    private string Snapshot => System.Text.Json.JsonSerializer.Serialize(new { input.Name, Items = rows.OrderBy(x => x.IngredientId).Select(x => new { x.IngredientId, x.UnitId, x.Quantity }) });
+    private bool Dirty => original != Snapshot || selected is not null;
+    private sealed class DraftRow(Guid ingredientId, Guid unitId, string name, string unit, string quantity)
+    {
+        public Guid IngredientId { get; } = ingredientId;
+        public Guid UnitId { get; } = unitId;
+        public string Name { get; } = name;
+        public string Unit { get; } = unit;
+        public string Quantity { get; set; } = quantity;
+    }
+    private static string Format(decimal value) => value.ToString("0.####", CultureInfo.CurrentCulture);
+    protected override async Task OnInitializedAsync()
+    {
+        try {
+            var actor = (await Auth.GetAuthenticationStateAsync()).User;
+            if (MealId is { } id) {
+                var recipe = await Recipes.GetAsync(actor, id);
+                input.Id = id; input.Name = recipe.Name;
+                rows.AddRange(recipe.Items.Select(x => new DraftRow(x.IngredientId, x.UnitId, x.Name, x.Unit, Format(x.Quantity))));
+            }
+            ingredients = await Ingredients.ListAsync(actor);
+        } catch (HouseholdRuleException ex) { error = ex.Message; loadFailed = true; }
+        finally { loading = false; original = Snapshot; }
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (focusQuantity) { focusQuantity = false; await quantityElement.FocusAsync(); }
+        if (focusSearch) { focusSearch = false; await searchElement.FocusAsync(); }
+        if (focusDiscard) { focusDiscard = false; await keepEditingElement.FocusAsync(); }
+    }
+    private ElementReference searchElement;
+    private Task HandleOpen(bool value) => value ? Task.CompletedTask : Close();
+    private async Task Close()
+    {
+        if (busy || loading || ingredientInput is not null) return;
+        if (Dirty) { confirmDiscard = true; focusDiscard = true; } else await Closed.InvokeAsync();
+    }
+    private void KeepEditing() { confirmDiscard = false; focusSearch = true; }
+    private async Task Discard() { confirmDiscard = false; await Closed.InvokeAsync(); }
+    private void Select(ManageIngredients.Item ingredient)
+    {
+        selected = ingredient; quantity = ""; error = null; focusQuantity = true;
+    }
+    private void AddRow()
+    {
+        try {
+            if (selected is null) throw new HouseholdRuleException("Choose an ingredient.");
+            if (rows.Any(x => x.IngredientId == selected.Id)) throw new HouseholdRuleException("This ingredient is already added.");
+            var amount = IngredientQuantity.Parse(quantity, "quantity");
+            rows.Add(new(selected.Id, selected.UnitId, selected.Name, selected.Unit, Format(amount)));
+            selected = null; quantity = ""; search = ""; error = null; focusSearch = true;
+        } catch (HouseholdRuleException ex) { error = ex.Message; }
+    }
+    private void CreateIngredient() => ingredientInput = new() { Name = search.Trim().Length <= 100 ? search.Trim() : "" };
+    private Task IngredientClosed() { ingredientInput = null; return Task.CompletedTask; }
+    private async Task IngredientSaved(Guid id)
+    {
+        ingredients = await Ingredients.ListAsync((await Auth.GetAuthenticationStateAsync()).User);
+        ingredientInput = null;
+        var added = ingredients.Single(x => x.Id == id);
+        search = added.Name; Select(added);
+    }
+    private async Task Save()
+    {
+        if (busy || loading) return;
+        if (selected is not null) { error = "Add the selected ingredient to the recipe before saving."; return; }
+        busy = true; error = null;
+        try {
+            input.Recipe = rows.Select(x => new ManageMeals.RecipeEntry(x.IngredientId, x.UnitId, x.Quantity)).ToList();
+            await Meals.SaveAsync((await Auth.GetAuthenticationStateAsync()).User, input);
+            await Saved.InvokeAsync();
+        } catch (HouseholdRuleException ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+}

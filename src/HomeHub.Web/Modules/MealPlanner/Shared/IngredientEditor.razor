@@ -1,0 +1,91 @@
+@using System.Globalization
+@using HomeHub.Web.Modules.Households
+@using HomeHub.Web.Modules.MealPlanner.ManageIngredients
+@using HomeHub.Web.Modules.MealPlanner.ManageIngredientUnits
+@inject ManageIngredients Ingredients
+@inject ManageIngredientUnits Units
+@inject AuthenticationStateProvider Auth
+
+<BbDialog Open="true" OpenChanged="HandleOpen">
+    <BbDialogContent Class="catalog-dialog" ShowClose="false" CloseOnEscape="false" CloseOnOverlayClick="false" OnEscapeKeyDown="Cancel">
+        <BbDialogHeader>
+            <BbDialogTitle>@(Input.Id is null ? "Add ingredient" : "Edit ingredient")</BbDialogTitle>
+            <BbDialogDescription>@(Inline ? "Save this ingredient to your shared list. It will remain there even if you cancel the meal." : "Keep package details in your household's shared ingredient list.")</BbDialogDescription>
+        </BbDialogHeader>
+        @if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
+        @if (notice is not null) { <p role="status">@notice</p> }
+        <EditForm Model="Input" OnValidSubmit="Save" FormName="ingredient" class="catalog-form">
+            <DataAnnotationsValidator /><ValidationSummary />
+            <fieldset disabled="@(busy || loading)">
+                <label for="ingredient-name">Ingredient name</label>
+                <InputText id="ingredient-name" @bind-Value="Input.Name" maxlength="100" data-autofocus />
+                <label for="ingredient-unit">Unit</label>
+                <InputSelect id="ingredient-unit" @bind-Value="Input.UnitId">
+                    <option value="">Choose a unit</option>
+                    @foreach (var unit in units) { <option value="@unit.Id">@unit.Name</option> }
+                </InputSelect>
+                <label for="ingredient-amount">Amount per package</label>
+                <InputText id="ingredient-amount" @bind-Value="Input.Amount" inputmode="decimal" maxlength="32" aria-describedby="ingredient-amount-help" />
+                <small id="ingredient-amount-help">For a 500-gram packet, choose grams and enter 500. Use up to four decimal places, for example @Format(0.5m).</small>
+                <label for="ingredient-price">Package price (£, optional)</label>
+                <InputText id="ingredient-price" @bind-Value="Input.PackagePrice" inputmode="decimal" maxlength="32" aria-describedby="ingredient-price-help" />
+                <small id="ingredient-price-help">Price for one package, for example @Format(1.50m). Leave blank if unknown; zero means free. Use up to two decimal places.</small>
+                <div class="actions">
+                    <BbButton Type="ButtonType.Submit" Disabled="busy">Save ingredient</BbButton>
+                    <BbButton Variant="ButtonVariant.Outline" Class="secondary" OnClick="Cancel" Disabled="busy">Cancel</BbButton>
+                </div>
+            </fieldset>
+        </EditForm>
+        <details open="@(units.Count == 0)">
+            <summary>Add a unit</summary>
+            <EditForm Model="unitInput" OnValidSubmit="AddUnit" FormName="ingredient-unit" class="catalog-form">
+                <DataAnnotationsValidator /><ValidationSummary />
+                <fieldset disabled="@(busy || loading)">
+                    <label for="unit-name">New unit name</label>
+                    <InputText id="unit-name" @bind-Value="unitInput.Name" maxlength="50" />
+                    <small>Shared by your household, such as grams, slices, or packets.</small>
+                    <div class="actions"><BbButton Type="ButtonType.Submit" Disabled="busy">Save unit</BbButton></div>
+                </fieldset>
+            </EditForm>
+        </details>
+        @if (loading) { <p role="status">Loading units…</p> }
+    </BbDialogContent>
+</BbDialog>
+
+@code {
+    [Parameter, EditorRequired] public ManageIngredients.Request Input { get; set; } = new();
+    [Parameter] public bool Inline { get; set; }
+    [Parameter] public EventCallback<Guid> Saved { get; set; }
+    [Parameter] public EventCallback Closed { get; set; }
+    private IReadOnlyList<ManageIngredientUnits.Item> units = [];
+    private ManageIngredientUnits.Request unitInput = new();
+    private bool busy;
+    private bool loading = true;
+    private string? error;
+    private string? notice;
+    private static string Format(decimal value) => value.ToString("0.####", CultureInfo.CurrentCulture);
+    protected override async Task OnInitializedAsync()
+    {
+        await Run(async () => units = await Units.ListAsync((await Auth.GetAuthenticationStateAsync()).User));
+        loading = false;
+    }
+    private Task HandleOpen(bool value) => value ? Task.CompletedTask : Cancel();
+    private async Task Cancel() { if (!busy) await Closed.InvokeAsync(); }
+    private async Task Save() => await Run(async () => {
+        var id = await Ingredients.SaveAsync((await Auth.GetAuthenticationStateAsync()).User, Input);
+        await Saved.InvokeAsync(id);
+    });
+    private async Task AddUnit() => await Run(async () => {
+        var actor = (await Auth.GetAuthenticationStateAsync()).User;
+        Input.UnitId = await Units.CreateAsync(actor, unitInput);
+        units = await Units.ListAsync(actor); unitInput = new(); notice = "Unit ready to use.";
+    });
+    private async Task Run(Func<Task> action)
+    {
+        if (busy) return;
+        busy = true; error = null; notice = null;
+        try { await action(); }
+        catch (HouseholdRuleException ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+}

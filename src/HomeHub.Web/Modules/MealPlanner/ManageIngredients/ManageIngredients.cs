@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using System.Security.Claims;
 using HomeHub.Web.Data;
 using HomeHub.Web.Modules.Households;
@@ -8,13 +9,14 @@ namespace HomeHub.Web.Modules.MealPlanner.ManageIngredients;
 
 public sealed class ManageIngredients(IDbContextFactory<ApplicationDbContext> factory)
 {
-    public sealed record Item(Guid Id, string Name, Guid UnitId, string Unit, decimal Amount);
+    public sealed record Item(Guid Id, string Name, Guid UnitId, string Unit, decimal Amount, decimal? PackagePrice = null);
     public sealed class Request
     {
         public Guid? Id { get; set; }
         [Required, StringLength(100)] public string Name { get; set; } = "";
         [Required(ErrorMessage = "Choose a unit.")] public Guid? UnitId { get; set; }
         [Required] public string Amount { get; set; } = "1";
+        public string? PackagePrice { get; set; }
     }
 
     public async Task<IReadOnlyList<Item>> ListAsync(ClaimsPrincipal actor, CancellationToken ct = default)
@@ -22,7 +24,7 @@ public sealed class ManageIngredients(IDbContextFactory<ApplicationDbContext> fa
         await using var db = await factory.CreateDbContextAsync(ct);
         var current = await HouseholdAccess.RequireAsync(db, actor, ct: ct);
         return await db.Ingredients.Where(x => x.HouseholdId == current.HouseholdId).OrderBy(x => x.Name)
-            .Select(x => new Item(x.Id, x.Name, x.UnitId, x.Unit.Name, x.Amount)).ToListAsync(ct);
+            .Select(x => new Item(x.Id, x.Name, x.UnitId, x.Unit.Name, x.Amount, x.PackagePrice)).ToListAsync(ct);
     }
 
     public async Task<Guid> SaveAsync(ClaimsPrincipal actor, Request input, CancellationToken ct = default)
@@ -32,6 +34,7 @@ public sealed class ManageIngredients(IDbContextFactory<ApplicationDbContext> fa
         var name = input.Name.Trim();
         var normalized = name.ToUpperInvariant();
         var amount = IngredientQuantity.Parse(input.Amount, "amount");
+        var price = ParsePrice(input.PackagePrice);
         await using var db = await factory.CreateDbContextAsync(ct);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         var current = await HouseholdAccess.LockAsync(db, actor, ct: ct);
@@ -49,6 +52,7 @@ public sealed class ManageIngredients(IDbContextFactory<ApplicationDbContext> fa
         ingredient.NormalizedName = normalized;
         ingredient.UnitId = unitId;
         ingredient.Amount = amount;
+        ingredient.PackagePrice = price;
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         return ingredient.Id;
@@ -70,4 +74,17 @@ public sealed class ManageIngredients(IDbContextFactory<ApplicationDbContext> fa
     internal static async Task<Ingredient> FindAsync(ApplicationDbContext db, Guid householdId, Guid id, CancellationToken ct) =>
         await db.Ingredients.SingleOrDefaultAsync(x => x.Id == id && x.HouseholdId == householdId, ct)
         ?? throw new HouseholdRuleException("Ingredient not found. Refresh the ingredient list.");
+
+    private static decimal? ParsePrice(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        var value = text.Trim();
+        var separator = CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator;
+        var fraction = value.IndexOf(separator, StringComparison.Ordinal);
+        if ((fraction >= 0 && value.Length - fraction - separator.Length > 2)
+            || !decimal.TryParse(value, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.CurrentCulture, out var price)
+            || price < 0 || price > 99999999.99m)
+            throw new HouseholdRuleException("Enter a package price from 0 to 99,999,999.99 with at most two decimal places, or leave it blank.");
+        return price;
+    }
 }

@@ -45,6 +45,11 @@ public sealed class IngredientUnitSqlServerTests
             var recipes = app.Services.GetRequiredService<ManageRecipe>();
             var migrated = (await ingredients.ListAsync(actor)).Single();
             Assert.Equal(pasta, migrated.Id); Assert.Equal(1m, migrated.Amount); Assert.Equal("packets", migrated.Unit);
+            Assert.Null(migrated.PackagePrice);
+            await ingredients.SaveAsync(actor, new() { Id = pasta, Name = "Pasta", UnitId = migrated.UnitId, PackagePrice = "1.50" });
+            Assert.Equal(1.50m, (await ingredients.ListAsync(actor)).Single().PackagePrice);
+            await ingredients.SaveAsync(actor, new() { Id = pasta, Name = "Pasta", UnitId = migrated.UnitId, PackagePrice = "0.00" });
+            Assert.Equal(0m, (await ingredients.ListAsync(actor)).Single().PackagePrice);
             Assert.Equal(0.5m, (await recipes.GetAsync(actor, meal)).Items.Single().Quantity);
             var concurrent = await Task.WhenAll(units.CreateAsync(actor, new() { Name = "grams" }), units.CreateAsync(actor, new() { Name = " GRAMS " }));
             Assert.Equal(concurrent[0], concurrent[1]);

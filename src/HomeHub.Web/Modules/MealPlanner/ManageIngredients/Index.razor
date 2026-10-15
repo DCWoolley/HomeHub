@@ -2,106 +2,59 @@
 @attribute [Authorize]
 @layout AppLayout
 @using HomeHub.Web.Modules.Households
+@using HomeHub.Web.Modules.MealPlanner.Shared
 @using System.Globalization
-@using HomeHub.Web.Modules.MealPlanner.ManageIngredientUnits
 @inject ManageIngredients UseCase
-@inject ManageIngredientUnits UnitUseCase
 @inject AuthenticationStateProvider Auth
+
 <PageTitle>Ingredients</PageTitle>
-<h1>Your ingredients</h1>
-<p>Keep a shared list of ingredients to use in your meal recipes.</p>
-<p><a href="/Meals">Open meal list</a></p>
-<fieldset class="ingredient-controls" disabled="@(!interactiveReady || busy)" aria-label="Ingredient management">
-@if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
-@if (notice is not null) { <p role="status">@notice</p> }
-<EditForm Model="input" OnValidSubmit="Save" FormName="ingredient">
-    <DataAnnotationsValidator /><ValidationSummary />
-    <label for="ingredient-name">@(input.Id is null ? "New ingredient name" : "Edit ingredient name")</label>
-    <InputText id="ingredient-name" @bind-Value="input.Name" maxlength="100" disabled="@busy" />
-    <label for="ingredient-unit">Unit</label>
-    <InputSelect id="ingredient-unit" @bind-Value="input.UnitId" disabled="@busy">
-        <option value="">Choose a unit</option>
-        @foreach (var unit in units) { <option value="@unit.Id">@unit.Name</option> }
-    </InputSelect>
-    <ValidationMessage For="() => input.UnitId" />
-    <label for="ingredient-amount">Amount per package</label>
-    <InputText id="ingredient-amount" @bind-Value="input.Amount" inputmode="decimal" maxlength="32" disabled="@busy" aria-describedby="ingredient-amount-help" />
-    <small id="ingredient-amount-help">For example, choose grams and enter 500 for a 500-gram packet. Use up to four decimal places, such as @Format(0.5m).</small>
-    <div class="actions"><BbButton Type="ButtonType.Submit" Disabled="busy">Save ingredient</BbButton>
-    @if (input.Id is not null) { <BbButton OnClick="Cancel" Disabled="busy">Cancel edit</BbButton> }
-    <BbButton OnClick="Refresh" Disabled="busy">Refresh list</BbButton></div>
-</EditForm>
-<details open="@(units.Count == 0)">
-    <summary>Add a unit</summary>
-    <p>Units are shared by your household. Add any name you need, such as grams, millilitres, or packets.</p>
-    <EditForm Model="unitInput" OnValidSubmit="AddUnit" FormName="ingredient-unit">
-        <DataAnnotationsValidator /><ValidationSummary />
-        <label for="unit-name">New unit name</label>
-        <InputText id="unit-name" @bind-Value="unitInput.Name" maxlength="50" disabled="@busy" />
-        <div class="actions"><BbButton Type="ButtonType.Submit" Disabled="busy">Save unit</BbButton></div>
-    </EditForm>
-</details>
-@if (units.Count == 0) { <p>No units yet. Add your first unit to use it in the ingredient pick list.</p> }
-@if (ingredients.Count == 0) { <p>No ingredients yet. Add your first ingredient above.</p> }
-@foreach (var ingredient in ingredients) {
-    <div class="card" @key="ingredient.Id"><strong>@ingredient.Name</strong>
-        <p>Amount per package: @Format(ingredient.Amount) @ingredient.Unit</p>
-        <div class="actions"><BbButton OnClick="() => Edit(ingredient)" Disabled="busy">Edit</BbButton>
-        <BbButton OnClick="() => Preview(ingredient)" Disabled="busy">Delete</BbButton></div>
+<div class="catalog-heading"><div><p class="eyebrow">Your household cookbook</p><h1>Your ingredients</h1><p>Package details, ready for every recipe.</p></div><a href="/Meals">Meal list →</a></div>
+<fieldset class="catalog-controls ingredient-controls" disabled="@(!interactiveReady || busy)" aria-label="Ingredient management">
+    <div class="catalog-toolbar"><div><label for="ingredient-search">Search ingredients</label><input id="ingredient-search" type="search" @bind="search" @bind:event="oninput" placeholder="Find an ingredient…" /></div><BbButton OnClick="Add">Add ingredient</BbButton></div>
+    @if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
+    @if (notice is not null) { <p role="status">@notice</p> }
+    <p class="catalog-count">@ingredients.Count ingredient@(ingredients.Count == 1 ? "" : "s")</p>
+    @if (ingredients.Count == 0) { <p class="catalog-empty">No ingredients yet. Add your first ingredient to get started.</p> }
+    else if (!Filtered.Any()) { <p class="catalog-empty" role="status">No ingredients match your search.</p> }
+    <div class="catalog-list">
+        @foreach (var ingredient in Filtered) {
+            <article class="catalog-entry" @key="ingredient.Id"><div><h2>@ingredient.Name</h2><p>Amount per package: @Format(ingredient.Amount) @ingredient.Unit</p><span class="catalog-price">@(ingredient.PackagePrice is { } price ? price.ToString("C2", CultureInfo.GetCultureInfo("en-GB")) : "Price unknown")</span></div>
+                <div class="actions"><BbButton Variant="ButtonVariant.Outline" Class="secondary" OnClick="() => Edit(ingredient)">Edit</BbButton><BbButton Variant="ButtonVariant.Outline" Class="secondary" OnClick="() => pending = ingredient">Delete</BbButton></div>
+            </article>
+        }
     </div>
-}
-@if (pending is not null) {
-    <section class="alert" aria-label="Confirm ingredient deletion">
-        <p>Delete <strong>@pending.Name</strong> from your ingredient list? Ingredients used in recipes must first be removed from those recipes.</p>
-        <div class="actions"><BbButton OnClick="Delete" Disabled="busy">Confirm deletion</BbButton>
-        <BbButton OnClick="() => pending = null" Disabled="busy">Cancel deletion</BbButton></div>
-    </section>
-}
+    @if (pending is not null) {
+        <section class="alert" aria-label="Confirm ingredient deletion"><p>Delete <strong>@pending.Name</strong>? Ingredients used in recipes must first be removed from those recipes.</p><div class="actions"><BbButton OnClick="Delete">Confirm deletion</BbButton><BbButton Variant="ButtonVariant.Outline" Class="secondary" OnClick="() => pending = null">Cancel deletion</BbButton></div></section>
+    }
 </fieldset>
+@if (input is not null) { <IngredientEditor Input="input" Saved="Saved" Closed="() => input = null" /> }
+
 @code {
     private bool interactiveReady;
-    private ManageIngredients.Request input = new();
-    private ManageIngredientUnits.Request unitInput = new();
-    private IReadOnlyList<ManageIngredientUnits.Item> units = [];
-    private IReadOnlyList<ManageIngredients.Item> ingredients = [];
-    private ManageIngredients.Item? pending;
+    private bool busy;
+    private string search = "";
     private string? error;
     private string? notice;
-    private bool busy;
+    private ManageIngredients.Request? input;
+    private IReadOnlyList<ManageIngredients.Item> ingredients = [];
+    private ManageIngredients.Item? pending;
+    private IEnumerable<ManageIngredients.Item> Filtered => ingredients.Where(x => x.Name.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase));
+    private static string Format(decimal value) => value.ToString("0.####", CultureInfo.CurrentCulture);
     protected override async Task OnInitializedAsync() => await Refresh();
-    protected override void OnAfterRender(bool firstRender)
-    {
-        if (firstRender) { interactiveReady = true; StateHasChanged(); }
-    }
-    private static string Format(decimal amount) => amount.ToString("0.####", CultureInfo.CurrentCulture);
-    private async Task Refresh() => await Run(async () => {
-        var actor = (await Auth.GetAuthenticationStateAsync()).User;
-        ingredients = await UseCase.ListAsync(actor); units = await UnitUseCase.ListAsync(actor);
-    });
-    private void Edit(ManageIngredients.Item ingredient) { input = new() { Id = ingredient.Id, Name = ingredient.Name, UnitId = ingredient.UnitId, Amount = Format(ingredient.Amount) }; pending = null; error = null; notice = null; }
-    private void Preview(ManageIngredients.Item ingredient) { pending = ingredient; error = null; notice = null; }
-    private void Cancel() => input = new();
-    private async Task AddUnit() => await Run(async () => {
-        var actor = (await Auth.GetAuthenticationStateAsync()).User;
-        input.UnitId = await UnitUseCase.CreateAsync(actor, unitInput);
-        units = await UnitUseCase.ListAsync(actor); unitInput = new(); notice = "Unit ready to use.";
-    });
-    private async Task Save() => await Run(async () => {
-        var actor = (await Auth.GetAuthenticationStateAsync()).User;
-        await UseCase.SaveAsync(actor, input);
-        Cancel(); pending = null; ingredients = await UseCase.ListAsync(actor); notice = "Ingredient saved.";
-    });
+    protected override void OnAfterRender(bool firstRender) { if (firstRender) { interactiveReady = true; StateHasChanged(); } }
+    private void Add() { input = new(); pending = null; error = notice = null; }
+    private void Edit(ManageIngredients.Item item) { input = new() { Id = item.Id, Name = item.Name, UnitId = item.UnitId, Amount = Format(item.Amount), PackagePrice = item.PackagePrice?.ToString("0.00", CultureInfo.CurrentCulture) }; pending = null; error = notice = null; }
+    private async Task Refresh() => await Run(async () => ingredients = await UseCase.ListAsync((await Auth.GetAuthenticationStateAsync()).User));
+    private async Task Saved(Guid id) { input = null; await Refresh(); notice = "Ingredient saved."; }
     private async Task Delete() => await Run(async () => {
         if (pending is null) return;
         var actor = (await Auth.GetAuthenticationStateAsync()).User;
-        await UseCase.DeleteAsync(actor, pending.Id);
-        pending = null; Cancel(); ingredients = await UseCase.ListAsync(actor); notice = "Ingredient deleted.";
+        await UseCase.DeleteAsync(actor, pending.Id); pending = null;
+        ingredients = await UseCase.ListAsync(actor); notice = "Ingredient deleted.";
     });
     private async Task Run(Func<Task> action)
     {
-        if (busy) return; busy = true; error = null; notice = null;
-        try { await action(); }
-        catch (HouseholdRuleException ex) { error = ex.Message; }
-        finally { busy = false; }
+        if (busy) return; busy = true; error = null;
+        try { await action(); } catch (HouseholdRuleException ex) { error = ex.Message; } finally { busy = false; }
     }
 }

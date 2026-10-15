@@ -36,6 +36,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.HasIndex(x => new { x.HouseholdId, x.NormalizedName }).IsUnique();
             entity.HasAlternateKey(x => new { x.HouseholdId, x.Id });
             entity.Property(x => x.Amount).HasPrecision(12, 4);
+            entity.Property(x => x.PackagePrice).HasPrecision(10, 2);
+            entity.ToTable("Ingredients", table => table.HasCheckConstraint("CK_Ingredients_PackagePrice", "[PackagePrice] IS NULL OR ([PackagePrice] >= 0 AND [PackagePrice] <= 99999999.99)"));
             entity.ToTable("Ingredients", table => table.HasCheckConstraint("CK_Ingredients_Amount", "[Amount] > 0 AND [Amount] <= 99999999.9999"));
             entity.HasOne(x => x.Unit).WithMany().HasForeignKey(x => new { x.HouseholdId, x.UnitId })
                 .HasPrincipalKey(x => new { x.HouseholdId, x.Id }).OnDelete(DeleteBehavior.Restrict);

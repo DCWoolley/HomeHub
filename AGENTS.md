@@ -17,6 +17,12 @@ These instructions apply to the entire repository.
 - Registration must atomically create an account with household membership. Invitations are revocable, single-use, and expire after seven days.
 - Keep credentials and sensitive personal data out of source and logs. Do not log invitation codes.
 - Ingredients have a household-owned name, a required unit selected from a household unit list, and a positive amount per package. Members may add custom unit names. Recipe quantities use the ingredient's unit directly (500 grams per package, recipe quantity 250 means 250 grams). Amounts and quantities use SQL decimal(12,4); reject excess precision rather than rounding. Block unit changes while recipes reference an ingredient and reject stale recipe saves after a unit change. Block deletion of referenced ingredients; meal deletion cascades recipe items while preserving ingredients. Shopping-list generation remains future work.
+- Ingredient package prices are optional GBP values using SQL decimal(10,2); blank means unknown and zero means free. The meal editor saves its name and complete recipe in one transaction. Ingredients created inside it save independently and survive meal cancellation. Share the ingredient editor across both entry points.
+
+## Agent skills
+
+- For specifications or tickets, use [the GitHub tracker conventions](docs/agents/issue-tracker.md) and [triage labels](docs/agents/triage-labels.md).
+- For domain terminology, read [CONTEXT.md](CONTEXT.md). Keep planned design documents distinct from implemented module behavior.
 
 ## Verification
 

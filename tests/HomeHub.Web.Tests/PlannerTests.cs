@@ -96,7 +96,7 @@ public sealed class PlannerTests
         var mealsHtml = await browser.GetStringAsync("/Meals");
         Assert.Contains("Pasta &amp; salad", mealsHtml);
         Assert.Contains("<!--Blazor:{\"type\":\"server\"", mealsHtml);
-        Assert.Contains("<fieldset class=\"meal-controls\" disabled", mealsHtml);
+        Assert.Matches("<fieldset[^>]*disabled[^>]*aria-label=\"Meal management\"", mealsHtml);
         var member = (await app.Services.GetRequiredService<ManageAccountMembers>().ListAsync(actor)).Single(x => !x.IsOwner);
         await app.Services.GetRequiredService<ManageAccountMembers>().RemoveAsync(actor, member.UserId);
         foreach (var route in new[] { "/Meals", "/MealPlanner", "/MealPlanner/Settings" })

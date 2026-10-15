@@ -66,7 +66,7 @@ try {
             Assert-Condition ($page.Content -match '<!--Blazor:\{"type":"server"') "Interactive server marker missing: $path"
         }
         if ($path -eq $recipePath) {
-            Assert-Condition ($page.Content -match 'Verification pasta' -and $page.Content -match 'Quantity: 250 grams') 'Recipe name, quantity and ingredient unit did not render.'
+            Assert-Condition ($page.Content -match 'Verification pasta bake' -and $page.Content -match 'Your meals') 'Legacy recipe route did not render its meal list. The recipe editor opens after hydration.'
         }
         if ($path -eq '/Ingredients') {
             Assert-Condition ($page.Content -match 'Amount per package: 500 grams') 'Ingredient amount and unit did not render.'
@@ -77,7 +77,7 @@ try {
     Assert-Condition ($login.Content -match 'Welcome home') 'Login/dashboard smoke test failed.'
     if ($VerifyBrowser) {
         $browserCookies = @($ownerSession.Cookies.GetCookies([Uri]$BaseUri) | ForEach-Object { @{ name=$_.Name; value=$_.Value; url=$BaseUri.TrimEnd('/') + '/'; httpOnly=$_.HttpOnly; secure=$_.Secure } })
-        @{ baseUri=$BaseUri; cookies=$browserCookies; artifacts=$env:HOMEHUB_BROWSER_ARTIFACTS } | ConvertTo-Json -Depth 5 -Compress | & node (Join-Path $PSScriptRoot 'Test-RecipesBrowser.cjs')
+        @{ baseUri=$BaseUri; cookies=$browserCookies; artifacts=$env:HOMEHUB_BROWSER_ARTIFACTS; recipePath=$recipePath } | ConvertTo-Json -Depth 5 -Compress | & node (Join-Path $PSScriptRoot 'Test-RecipesBrowser.cjs')
         Assert-Condition ($LASTEXITCODE -eq 0) 'Browser recipe verification failed.'
     }
     Write-Output 'Production registration, invitation joining, login, ingredient/recipe rendering, decimal quantity, dashboard, and protected routes verified.'

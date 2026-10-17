@@ -6,4 +6,3 @@ namespace HomeHub.Web.Data;
 public class ApplicationUser : IdentityUser
 {
 }
-

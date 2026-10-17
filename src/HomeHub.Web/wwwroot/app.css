@@ -129,3 +129,10 @@ code { overflow-wrap: anywhere; }
     .account-menu nav { flex-direction: column; }
     .welcome { padding: 2rem 0; }
 }
+
+.household-item-dialog { width: calc(100vw - 2rem) !important; max-width: 38rem !important; max-height: 90dvh; overflow-y: auto; background: var(--card); color: var(--foreground); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; transition-property: opacity, transform; }
+.household-item-dialog > * { min-width: 0; }
+.household-item-dialog form { max-width: none; }
+.household-item-editor-controls { border: 0; padding: 0; margin: 0; min-width: 0; }
+.household-item-dialog small { display: block; color: var(--muted-foreground); overflow-wrap: anywhere; }
+@media (max-width: 760px) { .household-item-dialog { padding: 1rem; } }

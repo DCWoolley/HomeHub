@@ -1,0 +1,70 @@
+@using HomeHub.Web.Modules.Households
+@using HomeHub.Web.Modules.HouseholdItems.ManageCatalogue
+@inject ManageCatalogue UseCase
+@inject AuthenticationStateProvider Auth
+@inject ILogger<HouseholdItemEditor> Logger
+
+<BbDialog Open="true" OpenChanged="HandleOpen">
+    <BbDialogContent Class="household-item-dialog" ShowClose="false" CloseOnEscape="false" CloseOnOverlayClick="false" OnEscapeKeyDown="Cancel">
+        <BbDialogHeader>
+            <BbDialogTitle>@(Input.Id is null ? "Add household item" : "Edit household item")</BbDialogTitle>
+            <BbDialogDescription>Keep a consumable and its expected weekly usage in your household's shared catalogue.</BbDialogDescription>
+        </BbDialogHeader>
+        @if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
+        <EditForm Model="Input" OnValidSubmit="Save" FormName="household-item">
+            <DataAnnotationsValidator /><ValidationSummary />
+            <fieldset class="household-item-editor-controls" disabled="@busy">
+                <label for="household-item-name">@(Input.Id is null ? "New household item name" : "Edit household item name")</label>
+                <InputText id="household-item-name" @bind-Value="Input.Name" maxlength="100" data-autofocus />
+                <label for="household-item-unit">Default usage unit</label>
+                <InputText id="household-item-unit" @bind-Value:get="Input.Unit" @bind-Value:set="SetUnit" maxlength="50" list="household-item-units" aria-describedby="unit-help" />
+                <datalist id="household-item-units">
+                    @foreach (var unit in ManageCatalogue.SuggestedUnits) { <option value="@unit">@unit</option> }
+                </datalist>
+                <small id="unit-help">Choose a suggestion or enter your own label. Quantities are not automatically converted.</small>
+                @if (ExistingItem?.ExpectedWeeklyUsage is not null && Input.Unit.Trim() != ExistingItem.Unit) {
+                    <label for="household-item-replacement">Replacement Expected Weekly Usage</label>
+                    <InputText id="household-item-replacement" @bind-Value="Input.ReplacementWeeklyUsage" inputmode="decimal" aria-describedby="usage-help replacement-help" />
+                    <small id="replacement-help">Enter a quantity in the new unit. Both save together. To remove the baseline, clear and save it before changing the unit.</small>
+                } else {
+                    <label for="household-item-usage">Expected Weekly Usage</label>
+                    <InputText id="household-item-usage" @bind-Value="Input.ExpectedWeeklyUsage" inputmode="decimal" aria-describedby="usage-help" />
+                }
+                <small id="usage-help">Leave blank for no baseline. Use 0.0001 to 99,999,999.9999 with at most four decimal places (example: @((0.25m).ToString("0.####"))).</small>
+                <div class="actions">
+                    <BbButton Type="ButtonType.Submit" Disabled="busy">Save household item</BbButton>
+                    <BbButton Variant="ButtonVariant.Outline" Class="secondary" OnClick="Cancel" Disabled="busy">Cancel</BbButton>
+                </div>
+            </fieldset>
+        </EditForm>
+    </BbDialogContent>
+</BbDialog>
+
+@code {
+    [Parameter, EditorRequired] public ManageCatalogue.Request Input { get; set; } = new();
+    [Parameter] public ManageCatalogue.Item? ExistingItem { get; set; }
+    [Parameter] public EventCallback<Guid> Saved { get; set; }
+    [Parameter] public EventCallback Closed { get; set; }
+    private bool busy;
+    private string? error;
+    private Task HandleOpen(bool value) => value ? Task.CompletedTask : Cancel();
+    private async Task Cancel() { if (!busy) await Closed.InvokeAsync(); }
+    private void SetUnit(string value)
+    {
+        if (Input.Unit.Trim() != value.Trim()) Input.ReplacementWeeklyUsage = "";
+        Input.Unit = value;
+    }
+    private async Task Save()
+    {
+        if (busy) return;
+        busy = true; error = null;
+        try {
+            var actor = (await Auth.GetAuthenticationStateAsync()).User;
+            var id = await UseCase.SaveAsync(actor, Input);
+            await Saved.InvokeAsync(id);
+        }
+        catch (HouseholdRuleException ex) { error = ex.Message; }
+        catch (Exception ex) { Logger.LogError(ex, "Could not save household item."); error = "Could not save this item. Your entries are still here. Please try again."; }
+        finally { busy = false; }
+    }
+}

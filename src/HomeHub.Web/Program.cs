@@ -60,6 +60,9 @@ builder.Services.AddScoped<HomeHub.Web.Modules.MealPlanner.ManageRecipe.ManageRe
 builder.Services.AddScoped<HomeHub.Web.Modules.MealPlanner.PlanWeek.PlanWeek>();
 builder.Services.AddScoped<HomeHub.Web.Modules.MealPlanner.ManagePlannerSettings.ManagePlannerSettings>();
 builder.Services.AddScoped<HomeHub.Web.Modules.MealPlanner.CreateMealFromPlanner.CreateMealFromPlanner>();
+builder.Services.AddScoped<HomeHub.Web.Modules.HouseholdItems.ManageCatalogue.ManageCatalogue>();
+builder.Services.AddScoped<HomeHub.Web.Modules.HouseholdItems.ManageArchived.ManageArchived>();
+builder.Services.AddScoped<HomeHub.Web.Modules.HouseholdItems.PlanConsumption.PlanConsumption>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
 var keysPath = builder.Configuration["DataProtection:KeysPath"];
@@ -95,7 +98,7 @@ app.Use(async (context, next) =>
 {
     var path = context.Request.Path;
     var householdRoute = path.StartsWithSegments("/Household") && !path.StartsWithSegments("/Household/Onboarding");
-    if (context.User.Identity?.IsAuthenticated == true && (householdRoute || path.StartsWithSegments("/Dashboard") || path.StartsWithSegments("/Meals") || path.StartsWithSegments("/Ingredients") || path.StartsWithSegments("/MealPlanner")))
+    if (context.User.Identity?.IsAuthenticated == true && (householdRoute || path.StartsWithSegments("/Dashboard") || path.StartsWithSegments("/Meals") || path.StartsWithSegments("/Ingredients") || path.StartsWithSegments("/HouseholdItems") || path.StartsWithSegments("/MealPlanner")))
     {
         var current = context.RequestServices.GetRequiredService<HomeHub.Web.Modules.Households.GetHousehold.GetHousehold>();
         if (await current.RunAsync(context.User, context.RequestAborted) is null)

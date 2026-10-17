@@ -1,0 +1,49 @@
+@page "/HouseholdItems/Planning"
+@attribute [Authorize]
+@layout AppLayout
+@using HomeHub.Web.Modules.Households
+@inject PlanConsumption UseCase
+@inject AuthenticationStateProvider Auth
+<PageTitle>Planning totals</PageTitle>
+<h1>Planning totals</h1>
+<p>Expected consumption from your household's current Expected Weekly Usage. Check existing supplies and decide what to buy.</p>
+<p><a href="/HouseholdItems">Household Items Catalogue</a></p>
+<fieldset class="planning-controls" disabled="@(!interactiveReady || busy)">
+    <form @onsubmit="Calculate" @onsubmit:preventDefault>
+        <label for="planning-weeks">Planning Period (weeks)</label>
+        <input id="planning-weeks" @bind="period" @bind:after="Calculate" inputmode="numeric" aria-describedby="planning-help" />
+        <small id="planning-help">Enter 1 to 2,147,483,647 whole weeks (the supported numeric range). Fractions are not supported.</small>
+        <BbButton Type="ButtonType.Submit" Disabled="busy">Calculate expected consumption</BbButton>
+    </form>
+    @if (error is not null) { <p role="alert">@error</p> }
+    else {
+        <h2>Expected consumption over @calculatedPeriod week(s)</h2>
+        @if (items.Count == 0) { <p>No expected consumption to total. Set Expected Weekly Usage in the catalogue.</p> }
+        @foreach (var item in items) {
+            <div class="card"><strong>@item.Name</strong>
+                <p>Usage unit: @item.Unit</p>
+                <p>Expected Weekly Usage: @item.WeeklyUsage.ToString("0.####") @item.Unit per week</p>
+                <p>Expected consumption: @item.Total.ToString("0.####") @item.Unit</p>
+            </div>
+        }
+    }
+</fieldset>
+@code {
+    private bool interactiveReady, busy;
+    private string period = "1", calculatedPeriod = "1";
+    private string? error;
+    private IReadOnlyList<PlanConsumption.Item> items = [];
+    protected override async Task OnInitializedAsync() => await Calculate();
+    protected override void OnAfterRender(bool firstRender) { if (firstRender) { interactiveReady = true; StateHasChanged(); } }
+    private async Task Calculate()
+    {
+        if (busy) return;
+        busy = true; error = null; items = [];
+        try {
+            items = await UseCase.ListAsync((await Auth.GetAuthenticationStateAsync()).User, period);
+            calculatedPeriod = period;
+        }
+        catch (HouseholdRuleException ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+}

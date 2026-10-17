@@ -39,3 +39,21 @@ These instructions apply to the entire repository.
 ## Documentation maintenance
 
 Update these instructions when conventions change, README when setup/architecture changes, and useful module documentation when behavior changes. Describe actual implementation separately from remaining planned work.
+
+## Agent skills
+
+### Issue tracker
+
+Before reading or publishing specs and tickets, read
+`docs/agents/issue-tracker.md`. Work is tracked in GitHub Issues.
+
+### Triage labels
+
+Before triaging or labelling issues, read
+`docs/agents/triage-labels.md` for the five canonical roles.
+
+### Domain docs
+
+Before exploring domain behaviour, read `docs/agents/domain.md`.
+This repo uses a single-context layout.
+

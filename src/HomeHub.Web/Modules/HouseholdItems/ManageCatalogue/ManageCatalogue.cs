@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using System.Security.Claims;
 using HomeHub.Web.Data;
 using HomeHub.Web.Modules.Households;
@@ -9,10 +10,13 @@ namespace HomeHub.Web.Modules.HouseholdItems.ManageCatalogue;
 public sealed class ManageCatalogue(IDbContextFactory<ApplicationDbContext> factory)
 {
     public static IReadOnlyList<string> SuggestedUnits { get; } = Array.AsReadOnly(new[] { "rolls", "bottles", "tablets", "bags", "ml", "litres" });
-    public sealed record Item(Guid Id, string Name, string Unit);
+    public sealed record Item(Guid Id, string Name, string Unit, decimal? ExpectedWeeklyUsage, Guid Version);
     public sealed class Request
     {
         public Guid? Id { get; set; }
+        public Guid Version { get; set; }
+        public string ExpectedWeeklyUsage { get; set; } = "";
+        public string ReplacementWeeklyUsage { get; set; } = "";
         [Required(ErrorMessage = "Enter a household item name."), StringLength(100)] public string Name { get; set; } = "";
         [Required(ErrorMessage = "Enter a usage unit."), StringLength(50)] public string Unit { get; set; } = "";
     }
@@ -22,7 +26,7 @@ public sealed class ManageCatalogue(IDbContextFactory<ApplicationDbContext> fact
         await using var db = await factory.CreateDbContextAsync(ct);
         var current = await HouseholdAccess.RequireAsync(db, actor, ct: ct);
         return await db.HouseholdItems.AsNoTracking().Where(x => x.HouseholdId == current.HouseholdId)
-            .OrderBy(x => x.Name).Select(x => new Item(x.Id, x.Name, x.Unit)).ToListAsync(ct);
+            .OrderBy(x => x.Name).Select(x => new Item(x.Id, x.Name, x.Unit, x.ExpectedWeeklyUsage, x.Version)).ToListAsync(ct);
     }
 
     public async Task<Guid> SaveAsync(ClaimsPrincipal actor, Request input, CancellationToken ct = default)
@@ -43,11 +47,33 @@ public sealed class ManageCatalogue(IDbContextFactory<ApplicationDbContext> fact
                 ?? throw new HouseholdRuleException("Household item not found. Refresh the catalogue.")
             : new HouseholdItem { HouseholdId = current.HouseholdId };
         if (input.Id is null) db.HouseholdItems.Add(item);
+        else if (input.Version != item.Version)
+            throw new HouseholdRuleException("This household item changed since you opened the editor. Cancel the edit, refresh the catalogue and reopen it before saving.");
         item.Name = name;
         item.NormalizedName = normalized;
+        var changingBaselineUnit = item.ExpectedWeeklyUsage is not null && item.Unit != input.Unit.Trim();
+        var usage = changingBaselineUnit
+            ? ParseUsage(input.ReplacementWeeklyUsage) ?? throw new HouseholdRuleException("Enter an explicit replacement Expected Weekly Usage in the new unit before saving.")
+            : ParseUsage(input.ExpectedWeeklyUsage);
         item.Unit = input.Unit.Trim();
+        item.ExpectedWeeklyUsage = usage;
+        item.Version = Guid.NewGuid();
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         return item.Id;
+    }
+
+    private static decimal? ParseUsage(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var trimmed = value.Trim();
+        var separator = CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator;
+        var fractionStart = trimmed.IndexOf(separator, StringComparison.Ordinal);
+        if ((fractionStart >= 0 && trimmed.Length - fractionStart - separator.Length > 4)
+            || !decimal.TryParse(trimmed, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint,
+                CultureInfo.CurrentCulture, out var parsed)
+            || parsed <= 0 || parsed > 99999999.9999m)
+            throw new HouseholdRuleException("Enter Expected Weekly Usage from 0.0001 to 99,999,999.9999 with at most four decimal places, using the example's decimal separator. Leave blank to clear it.");
+        return parsed;
     }
 }

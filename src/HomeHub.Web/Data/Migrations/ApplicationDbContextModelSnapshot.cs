@@ -94,6 +94,10 @@ namespace HomeHub.Web.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal?>("ExpectedWeeklyUsage")
+                        .HasPrecision(12, 4)
+                        .HasColumnType("decimal(12,4)");
+
                     b.Property<Guid>("HouseholdId")
                         .HasColumnType("uniqueidentifier");
 
@@ -112,12 +116,19 @@ namespace HomeHub.Web.Data.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("HouseholdId", "NormalizedName")
                         .IsUnique();
 
-                    b.ToTable("HouseholdItems");
+                    b.ToTable("HouseholdItems", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_HouseholdItems_ExpectedWeeklyUsage", "[ExpectedWeeklyUsage] IS NULL OR ([ExpectedWeeklyUsage] > 0 AND [ExpectedWeeklyUsage] <= 99999999.9999)");
+                        });
                 });
 
             modelBuilder.Entity("HomeHub.Web.Modules.Households.Household", b =>

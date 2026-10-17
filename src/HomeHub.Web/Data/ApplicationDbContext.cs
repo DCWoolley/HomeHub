@@ -28,6 +28,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.Name).HasMaxLength(100).IsRequired();
             entity.Property(x => x.NormalizedName).HasMaxLength(100).IsRequired();
             entity.Property(x => x.Unit).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.ExpectedWeeklyUsage).HasPrecision(12, 4);
+            entity.Property(x => x.Version).IsConcurrencyToken();
+            entity.ToTable("HouseholdItems", table => table.HasCheckConstraint("CK_HouseholdItems_ExpectedWeeklyUsage",
+                "[ExpectedWeeklyUsage] IS NULL OR ([ExpectedWeeklyUsage] > 0 AND [ExpectedWeeklyUsage] <= 99999999.9999)"));
             entity.HasIndex(x => new { x.HouseholdId, x.NormalizedName }).IsUnique();
             entity.HasOne<Household>().WithMany().HasForeignKey(x => x.HouseholdId).OnDelete(DeleteBehavior.Restrict);
         });

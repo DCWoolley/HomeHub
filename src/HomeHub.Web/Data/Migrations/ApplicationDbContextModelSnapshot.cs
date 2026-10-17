@@ -88,6 +88,38 @@ namespace HomeHub.Web.Data.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
+            modelBuilder.Entity("HomeHub.Web.Modules.HouseholdItems.HouseholdItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("HouseholdId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HouseholdId", "NormalizedName")
+                        .IsUnique();
+
+                    b.ToTable("HouseholdItems");
+                });
+
             modelBuilder.Entity("HomeHub.Web.Modules.Households.Household", b =>
                 {
                     b.Property<Guid>("Id")
@@ -508,6 +540,15 @@ namespace HomeHub.Web.Data.Migrations
                     b.HasKey("UserId", "LoginProvider", "Name");
 
                     b.ToTable("AspNetUserTokens", (string)null);
+                });
+
+            modelBuilder.Entity("HomeHub.Web.Modules.HouseholdItems.HouseholdItem", b =>
+                {
+                    b.HasOne("HomeHub.Web.Modules.Households.Household", null)
+                        .WithMany()
+                        .HasForeignKey("HouseholdId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("HomeHub.Web.Modules.Households.HouseholdInvitation", b =>

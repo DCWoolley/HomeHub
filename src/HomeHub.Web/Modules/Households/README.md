@@ -32,3 +32,5 @@ Household mutations acquire a write lock by updating the household Version befor
 Household HTTP requests redirect accounts without membership to onboarding. Account settings remain available. Each server-side data operation revalidates membership, so retained cookies and an already-open circuit cannot authorize a removed user. AppLayout also checks on navigation and every five seconds to clear the visible household shell.
 
 The [Meal Planner](../MealPlanner/README.md) shares meals and one reusable Monday–Sunday schedule across household account members. It currently has no profile assignments. Cleaning and profile assignment remain future work.
+
+The [Household Items Catalogue](../HouseholdItems/README.md) shares non-food consumables across current account members.

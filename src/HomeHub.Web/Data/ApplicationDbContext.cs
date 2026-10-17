@@ -1,3 +1,4 @@
+using HomeHub.Web.Modules.HouseholdItems;
 using HomeHub.Web.Modules.Households;
 using HomeHub.Web.Modules.MealPlanner;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -7,6 +8,7 @@ namespace HomeHub.Web.Data;
 
 public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : IdentityDbContext<ApplicationUser>(options)
 {
+    public DbSet<HouseholdItem> HouseholdItems => Set<HouseholdItem>();
     public DbSet<Household> Households => Set<Household>();
     public DbSet<HouseholdMember> HouseholdMembers => Set<HouseholdMember>();
     public DbSet<HouseholdMembership> HouseholdMemberships => Set<HouseholdMembership>();
@@ -21,6 +23,14 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+        builder.Entity<HouseholdItem>(entity =>
+        {
+            entity.Property(x => x.Name).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.NormalizedName).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.Unit).HasMaxLength(50).IsRequired();
+            entity.HasIndex(x => new { x.HouseholdId, x.NormalizedName }).IsUnique();
+            entity.HasOne<Household>().WithMany().HasForeignKey(x => x.HouseholdId).OnDelete(DeleteBehavior.Restrict);
+        });
         builder.Entity<IngredientUnit>(entity =>
         {
             entity.Property(x => x.Name).HasMaxLength(50).IsRequired();

@@ -31,6 +31,11 @@ module.exports = async function verifyCatalogue(baseUri) {
         await ready(owner);
         await owner.getByText('No household items yet.', { exact: false }).waitFor();
         console.log('Catalogue empty state reached.');
+        await owner.getByRole('link', { name: 'Planning totals', exact: true }).click();
+        await owner.locator('.planning-controls:not([disabled])').waitFor();
+        assert.equal(await owner.getByLabel('Planning Period (weeks)', { exact: true }).inputValue(), '1');
+        await owner.getByText('No expected consumption to total.', { exact: false }).waitFor();
+        await owner.goto(baseUri + '/HouseholdItems'); await ready(owner);
         for (const label of ['rolls', 'bottles', 'tablets', 'bags', 'ml', 'litres'])
             assert.equal(await owner.locator('datalist option').filter({ hasText: label }).count() > 0 || await owner.locator(`datalist option[value="${label}"]`).count() > 0, true);
         await owner.locator('#household-item-name').fill('Toilet roll');
@@ -125,6 +130,58 @@ module.exports = async function verifyCatalogue(baseUri) {
         await owner.reload(); await ready(owner);
         await card(owner, 'Soft toilet roll').getByText('Expected Weekly Usage: 6 rolls per week', { exact: true }).waitFor();
         console.log('Unit changes require explicit replacement; invalid saves/cancellation preserve both values.');
+        await owner.locator('#household-item-name').fill('Shampoo');
+        await owner.locator('#household-item-unit').fill('bottles');
+        await owner.getByLabel('Expected Weekly Usage', { exact: true }).fill('0.25');
+        await owner.getByRole('button', { name: 'Save household item', exact: true }).click();
+        await status(owner, 'Household item saved.');
+        await owner.locator('#household-item-name').fill('Oven cleaner');
+        await owner.locator('#household-item-unit').fill('bottles');
+        await owner.getByRole('button', { name: 'Save household item', exact: true }).click();
+        await status(owner, 'Household item saved.');
+        await owner.goto(baseUri + '/HouseholdItems/Planning');
+        await owner.locator('.planning-controls:not([disabled])').waitFor();
+        await card(owner, 'Soft toilet roll').getByText('Expected consumption: 6 rolls', { exact: true }).waitFor();
+        assert.equal(await card(owner, 'Oven cleaner').count(), 0);
+        await owner.getByLabel('Planning Period (weeks)', { exact: true }).fill('3');
+        await owner.getByLabel('Planning Period (weeks)', { exact: true }).blur();
+        await card(owner, 'Soft toilet roll').getByText('Expected consumption: 18 rolls', { exact: true }).waitFor();
+        await card(owner, 'Shampoo').getByText('Expected consumption: 0.75 bottles', { exact: true }).waitFor();
+        await owner.getByLabel('Planning Period (weeks)', { exact: true }).fill('2147483647');
+        await owner.getByLabel('Planning Period (weeks)', { exact: true }).blur();
+        await card(owner, 'Soft toilet roll').getByText('Expected consumption: 12884901882 rolls', { exact: true }).waitFor();
+        await card(owner, 'Shampoo').getByText('Expected consumption: 536870911.75 bottles', { exact: true }).waitFor();
+        for (const invalid of ['0', '-1', '1.5', 'nonsense', '2147483648', '999999999999999999999999999999999', '']) {
+            await owner.getByLabel('Planning Period (weeks)', { exact: true }).fill(invalid);
+            await owner.getByLabel('Planning Period (weeks)', { exact: true }).blur();
+            await owner.getByRole('alert').filter({ hasText: 'positive whole number of weeks from 1 to 2,147,483,647' }).waitFor();
+            assert.equal(await owner.locator('.planning-controls .card').count(), 0, 'Invalid period shows no totals');
+            assert.equal(await owner.getByLabel('Planning Period (weeks)', { exact: true }).inputValue(), invalid);
+        }
+        await owner.reload();
+        await owner.locator('.planning-controls:not([disabled])').waitFor();
+        await card(owner, 'Shampoo').getByText('Expected consumption: 0.25 bottles', { exact: true }).waitFor();
+        const plan = await owner.context().newPage();
+        await plan.goto(baseUri + '/HouseholdItems/Planning');
+        await plan.locator('.planning-controls:not([disabled])').waitFor();
+        await owner.goto(baseUri + '/HouseholdItems'); await ready(owner);
+        await card(owner, 'Shampoo').getByRole('button', { name: 'Edit', exact: true }).click();
+        await owner.getByText('Edit household item name', { exact: true }).waitFor();
+        await owner.getByLabel('Expected Weekly Usage', { exact: true }).fill('0.5');
+        await owner.getByRole('button', { name: 'Save household item', exact: true }).click();
+        await status(owner, 'Household item saved.');
+        await plan.getByRole('button', { name: 'Calculate expected consumption', exact: true }).click();
+        await card(plan, 'Shampoo').getByText('Expected consumption: 0.5 bottles', { exact: true }).waitFor();
+        await card(owner, 'Shampoo').getByRole('button', { name: 'Edit', exact: true }).click();
+        await owner.getByText('Edit household item name', { exact: true }).waitFor();
+        await owner.getByLabel('Expected Weekly Usage', { exact: true }).fill('');
+        await owner.getByRole('button', { name: 'Save household item', exact: true }).click();
+        await status(owner, 'Household item saved.');
+        await plan.getByRole('button', { name: 'Calculate expected consumption', exact: true }).click();
+        await card(plan, 'Shampoo').waitFor({ state: 'detached' });
+        await card(owner, 'Shampoo').waitFor();
+        await plan.close();
+        console.log('Planning default, exact fractional totals, supported numeric limit, invalid periods, current baselines and clear passed.');
         await owner.locator('#household-item-name').fill(' soft toilet roll ');
         await owner.locator('#household-item-unit').fill('sheets');
         await owner.getByRole('button', { name: 'Save household item', exact: true }).click();
@@ -174,6 +231,10 @@ module.exports = async function verifyCatalogue(baseUri) {
         await owner.reload(); await ready(owner);
         await card(owner, 'Shared toilet roll').getByText('Expected Weekly Usage: 250 ml per week', { exact: true }).waitFor();
         console.log('Shared fractional baseline and stale unit editor protection passed.');
+        const memberPlan = await member.context().newPage();
+        await memberPlan.goto(baseUri + '/HouseholdItems/Planning');
+        await memberPlan.locator('.planning-controls:not([disabled])').waitFor();
+        await card(memberPlan, 'Shared toilet roll').getByText('Expected consumption: 250 ml', { exact: true }).waitFor();
         await register(stranger, 'catalogue-stranger');
         await stranger.goto(baseUri + '/HouseholdItems'); await ready(stranger);
         assert.equal(await card(stranger, 'Shared toilet roll').count(), 0);
@@ -185,9 +246,15 @@ module.exports = async function verifyCatalogue(baseUri) {
         await status(stranger, 'Household item saved.');
         await stranger.reload(); await ready(stranger);
         await card(stranger, 'Shared toilet roll').getByText('Expected Weekly Usage: 0.75 bottles per week', { exact: true }).waitFor();
+        await stranger.goto(baseUri + '/HouseholdItems/Planning');
+        await stranger.locator('.planning-controls:not([disabled])').waitFor();
+        await card(stranger, 'Shared toilet roll').getByText('Expected consumption: 0.75 bottles', { exact: true }).waitFor();
+        assert.equal(await stranger.locator('.planning-controls .card').count(), 1);
         await owner.reload(); await ready(owner);
         await card(owner, 'Shared toilet roll').getByText('Expected Weekly Usage: 250 ml per week', { exact: true }).waitFor();
         await anonymous.goto(baseUri + '/HouseholdItems');
+        await anonymous.waitForURL('**/Account/Login?**');
+        await anonymous.goto(baseUri + '/HouseholdItems/Planning');
         await anonymous.waitForURL('**/Account/Login?**');
         console.log('Catalogue sharing, household isolation and authentication passed.');
         // Keep an edit form open in the member's existing server circuit during revocation.
@@ -199,6 +266,16 @@ module.exports = async function verifyCatalogue(baseUri) {
         await card(owner, 'catalogue-member').getByRole('button', { name: 'Remove access', exact: true }).click();
         await owner.getByRole('button', { name: 'Confirm removal', exact: true }).click();
         await card(owner, 'catalogue-member').waitFor({ state: 'detached' });
+        if (!memberPlan.url().includes('/Onboarding')) {
+            await memberPlan.getByRole('button', { name: 'Calculate expected consumption', exact: true }).click().catch(() => {});
+            await Promise.race([
+                memberPlan.getByRole('alert').filter({ hasText: 'Create or join a household' }).waitFor(),
+                memberPlan.waitForURL('**/Household/Onboarding')
+            ]);
+        }
+        assert.equal(await memberPlan.locator('.planning-controls .card').count(), 0);
+        await memberPlan.goto(baseUri + '/HouseholdItems/Planning');
+        await memberPlan.waitForURL('**/Household/Onboarding');
         // Either the operation is explicitly rejected or the layout already redirected the revoked circuit.
         if (!member.url().includes('/Onboarding')) {
             await member.getByRole('button', { name: 'Save household item', exact: true }).click().catch(() => {});

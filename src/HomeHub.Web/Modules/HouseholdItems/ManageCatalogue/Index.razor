@@ -6,6 +6,7 @@
 @inject AuthenticationStateProvider Auth
 <PageTitle>Household items</PageTitle>
 <h1>Household Items Catalogue</h1>
+<p><a href="/HouseholdItems/Planning">Planning totals</a></p>
 <p>Keep a shared list of non-food consumables such as toilet roll, shampoo, and laundry detergent.</p>
 <fieldset class="household-item-controls" disabled="@(!interactiveReady || busy)" aria-label="Household item management">
 @if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }

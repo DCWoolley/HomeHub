@@ -1,0 +1,10 @@
+<strong>@Name</strong>
+<p>Usage unit: @Unit</p>
+@if (ExpectedWeeklyUsage is { } quantity) { <p>Expected Weekly Usage: @quantity.ToString("0.####") @Unit per week</p> }
+else { <p>No Expected Weekly Usage set.</p> }
+
+@code {
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+    [Parameter, EditorRequired] public string Unit { get; set; } = "";
+    [Parameter] public decimal? ExpectedWeeklyUsage { get; set; }
+}

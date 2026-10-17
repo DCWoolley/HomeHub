@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @layout AppLayout
 @using HomeHub.Web.Modules.Households
+@using HomeHub.Web.Modules.HouseholdItems.Shared
 @inject ManageCatalogue UseCase
 @inject AuthenticationStateProvider Auth
 <PageTitle>Household items</PageTitle>
@@ -16,7 +17,7 @@
     <label for="household-item-name">@(input.Id is null ? "New household item name" : "Edit household item name")</label>
     <InputText id="household-item-name" @bind-Value="input.Name" maxlength="100" disabled="@busy" />
     <label for="household-item-unit">Default usage unit</label>
-    <InputText id="household-item-unit" @bind-Value="input.Unit" maxlength="50" list="household-item-units" aria-describedby="unit-help" disabled="@busy" />
+    <InputText id="household-item-unit" @bind-Value:get="input.Unit" @bind-Value:set="SetUnit" maxlength="50" list="household-item-units" aria-describedby="unit-help" disabled="@busy" />
     <datalist id="household-item-units">
         @foreach (var unit in ManageCatalogue.SuggestedUnits) { <option value="@unit">@unit</option> }
     </datalist>
@@ -36,10 +37,8 @@
 </EditForm>
 @if (items.Count == 0 && error is null) { <p>No household items yet. Add your first item above.</p> }
 @foreach (var item in items) {
-    <div class="card" @key="item.Id"><strong>@item.Name</strong>
-        <p>Usage unit: @item.Unit</p>
-        @if (item.ExpectedWeeklyUsage is { } quantity) { <p>Expected Weekly Usage: @quantity.ToString("0.####") @item.Unit per week</p> }
-        else { <p>No Expected Weekly Usage set.</p> }
+    <div class="card" @key="item.Id">
+        <HouseholdItemSummary Name="@item.Name" Unit="@item.Unit" ExpectedWeeklyUsage="item.ExpectedWeeklyUsage" />
         <div class="actions"><BbButton OnClick="() => Edit(item)" Disabled="busy">Edit</BbButton><BbButton OnClick="() => Archive(item)" Disabled="busy">Archive</BbButton></div>
     </div>
 }
@@ -59,6 +58,11 @@
         items = await UseCase.ListAsync((await Auth.GetAuthenticationStateAsync()).User);
     });
     private void Edit(ManageCatalogue.Item item) { editingItem = item; input = new() { Id = item.Id, Version = item.Version, Name = item.Name, Unit = item.Unit, ExpectedWeeklyUsage = item.ExpectedWeeklyUsage?.ToString("0.####") ?? "" }; error = null; notice = null; }
+    private void SetUnit(string value)
+    {
+        if (input.Unit.Trim() != value.Trim()) input.ReplacementWeeklyUsage = "";
+        input.Unit = value;
+    }
     private void Cancel() { input = new(); editingItem = null; error = null; notice = "Edit cancelled."; }
     private async Task Archive(ManageCatalogue.Item item) => await Run(async () => {
         var actor = (await Auth.GetAuthenticationStateAsync()).User;

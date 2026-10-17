@@ -257,6 +257,66 @@ module.exports = async function verifyCatalogue(baseUri) {
         await anonymous.goto(baseUri + '/HouseholdItems/Planning');
         await anonymous.waitForURL('**/Account/Login?**');
         console.log('Catalogue sharing, household isolation and authentication passed.');
+        // Two current members share archive/restore; old editors and old actions cannot replay a cycle.
+        const staleEditor = await owner.context().newPage();
+        const staleArchive = await owner.context().newPage();
+        for (const page of [staleEditor, staleArchive]) { await page.goto(baseUri + '/HouseholdItems'); await ready(page); }
+        await card(staleEditor, 'Shared toilet roll').getByRole('button', { name: 'Edit', exact: true }).click();
+        await staleEditor.getByText('Edit household item name', { exact: true }).waitFor();
+        await staleEditor.locator('#household-item-name').fill('Stale name');
+        await staleEditor.getByLabel('Expected Weekly Usage', { exact: true }).fill('99');
+        await member.reload(); await ready(member);
+        await card(member, 'Shared toilet roll').getByRole('button', { name: 'Archive', exact: true }).click();
+        await status(member, 'Household item archived.');
+        await staleEditor.getByRole('button', { name: 'Save household item', exact: true }).click();
+        await staleEditor.getByRole('alert').filter({ hasText: 'changed since' }).waitFor();
+        await card(staleArchive, 'Shared toilet roll').getByRole('button', { name: 'Archive', exact: true }).click();
+        await staleArchive.getByRole('alert').filter({ hasText: 'already archived' }).waitFor();
+        await owner.goto(baseUri + '/HouseholdItems/Archived');
+        await owner.locator('.archived-item-controls:not([disabled])').waitFor();
+        const staleRestore = await member.context().newPage();
+        await staleRestore.goto(baseUri + '/HouseholdItems/Archived');
+        await staleRestore.locator('.archived-item-controls:not([disabled])').waitFor();
+        await stranger.goto(baseUri + '/HouseholdItems/Archived');
+        await stranger.locator('.archived-item-controls:not([disabled])').waitFor();
+        await stranger.getByText('No archived household items.', { exact: true }).waitFor();
+        assert.equal(await card(stranger, 'Shared toilet roll').count(), 0);
+        await card(owner, 'Shared toilet roll').getByText('Expected Weekly Usage: 250 ml per week', { exact: true }).waitFor();
+        await card(owner, 'Shared toilet roll').getByRole('button', { name: 'Restore', exact: true }).click();
+        await status(owner, 'Household item restored.');
+        await card(staleRestore, 'Shared toilet roll').getByRole('button', { name: 'Restore', exact: true }).click();
+        await staleRestore.getByRole('alert').filter({ hasText: 'already restored' }).waitFor();
+        await staleEditor.getByRole('button', { name: 'Save household item', exact: true }).click();
+        await staleEditor.getByRole('alert').filter({ hasText: 'changed since' }).waitFor();
+        assert.equal(await staleEditor.getByLabel('Expected Weekly Usage', { exact: true }).inputValue(), '99');
+        // Reload only the old action tab before this distinct stale action scenario.
+        await staleArchive.reload(); await ready(staleArchive);
+        await member.goto(baseUri + '/HouseholdItems'); await ready(member);
+        await card(member, 'Shared toilet roll').getByRole('button', { name: 'Archive', exact: true }).click();
+        await status(member, 'Household item archived.');
+        await owner.getByRole('button', { name: 'Refresh archived items', exact: true }).click();
+        await card(owner, 'Shared toilet roll').getByRole('button', { name: 'Restore', exact: true }).click();
+        await status(owner, 'Household item restored.');
+        await card(staleArchive, 'Shared toilet roll').getByRole('button', { name: 'Archive', exact: true }).click();
+        await staleArchive.getByRole('alert').filter({ hasText: 'changed since' }).waitFor();
+        await member.goto(baseUri + '/HouseholdItems'); await ready(member);
+        await card(member, 'Shared toilet roll').getByText('Expected Weekly Usage: 250 ml per week', { exact: true }).waitFor();
+        await owner.goto(baseUri + '/HouseholdItems'); await ready(owner);
+        assert.equal(await card(owner, 'Stale name').count(), 0);
+        // Leave both types of mutation and an archived read open when membership is revoked.
+        await card(owner, 'Oven cleaner').getByRole('button', { name: 'Archive', exact: true }).click();
+        await status(owner, 'Household item archived.');
+        const revokedArchive = await member.context().newPage();
+        await revokedArchive.goto(baseUri + '/HouseholdItems'); await ready(revokedArchive);
+        await staleRestore.goto(baseUri + '/HouseholdItems/Archived');
+        await staleRestore.locator('.archived-item-controls:not([disabled])').waitFor();
+        const revokedRead = await member.context().newPage();
+        await revokedRead.goto(baseUri + '/HouseholdItems/Archived');
+        await revokedRead.locator('.archived-item-controls:not([disabled])').waitFor();
+        await anonymous.goto(baseUri + '/HouseholdItems/Archived');
+        await anonymous.waitForURL('**/Account/Login?**');
+        for (const page of [staleEditor, staleArchive]) await page.close();
+        console.log('Shared archive/restore, isolated archived reads, stale edits and repeated/stale actions preserve values.');
         // Keep an edit form open in the member's existing server circuit during revocation.
         await card(member, 'Shared toilet roll').getByRole('button', { name: 'Edit', exact: true }).click();
         await member.getByText('Edit household item name', { exact: true }).waitFor();
@@ -266,6 +326,18 @@ module.exports = async function verifyCatalogue(baseUri) {
         await card(owner, 'catalogue-member').getByRole('button', { name: 'Remove access', exact: true }).click();
         await owner.getByRole('button', { name: 'Confirm removal', exact: true }).click();
         await card(owner, 'catalogue-member').waitFor({ state: 'detached' });
+        for (const [page, button, name] of [[revokedArchive, 'Archive', 'Shared toilet roll'], [staleRestore, 'Restore', 'Oven cleaner'], [revokedRead, 'Refresh archived items', null]]) {
+            if (!page.url().includes('/Onboarding')) {
+                const action = name ? card(page, name).getByRole('button', { name: button, exact: true }) : page.getByRole('button', { name: button, exact: true });
+                await action.click().catch(() => {});
+                await Promise.race([page.getByRole('alert').filter({ hasText: 'Create or join a household' }).waitFor(), page.waitForURL('**/Household/Onboarding')]);
+            }
+            assert.equal(await page.locator('.card').filter({ has: page.getByRole('button', { name: /Archive|Restore/, exact: true }) }).count(), 0);
+        }
+        await owner.goto(baseUri + '/HouseholdItems/Archived');
+        await owner.locator('.archived-item-controls:not([disabled])').waitFor();
+        await card(owner, 'Oven cleaner').getByRole('button', { name: 'Restore', exact: true }).click();
+        await status(owner, 'Household item restored.');
         if (!memberPlan.url().includes('/Onboarding')) {
             await memberPlan.getByRole('button', { name: 'Calculate expected consumption', exact: true }).click().catch(() => {});
             await Promise.race([
@@ -292,6 +364,79 @@ module.exports = async function verifyCatalogue(baseUri) {
         await card(owner, 'Shared toilet roll').getByText('Expected Weekly Usage: 250 ml per week', { exact: true }).waitFor();
         assert.deepEqual(errors, []);
         console.log('Already-open member session cannot save or reread after removal.');
+        await card(owner, 'Shampoo').getByRole('button', { name: 'Edit', exact: true }).click();
+        await owner.getByText('Edit household item name', { exact: true }).waitFor();
+        await owner.getByLabel('Expected Weekly Usage', { exact: true }).fill('0.25');
+        await owner.getByRole('button', { name: 'Save household item', exact: true }).click();
+        await status(owner, 'Household item saved.');
+        // Archive keeps the saved identity and baseline but removes active planning consumption.
+        const archivePlan = await owner.context().newPage();
+        await archivePlan.goto(baseUri + '/HouseholdItems/Planning');
+        await archivePlan.locator('.planning-controls:not([disabled])').waitFor();
+        await archivePlan.getByLabel('Planning Period (weeks)', { exact: true }).fill('3');
+        await archivePlan.getByLabel('Planning Period (weeks)', { exact: true }).blur();
+        await card(archivePlan, 'Shampoo').getByText('Expected consumption: 0.75 bottles', { exact: true }).waitFor();
+        await owner.goto(baseUri + '/HouseholdItems'); await ready(owner);
+        await card(owner, 'Shampoo').getByRole('button', { name: 'Archive', exact: true }).click();
+        await status(owner, 'Household item archived.');
+        await owner.reload(); await ready(owner);
+        assert.equal(await card(owner, 'Shampoo').count(), 0);
+        await archivePlan.getByRole('button', { name: 'Calculate expected consumption', exact: true }).click();
+        await card(archivePlan, 'Shampoo').waitFor({ state: 'detached' });
+        await archivePlan.reload();
+        await archivePlan.locator('.planning-controls:not([disabled])').waitFor();
+        assert.equal(await card(archivePlan, 'Shampoo').count(), 0);
+        await archivePlan.close();
+        console.log('Archive persists and excludes saved usage from catalogue and planning.');
+        await owner.locator('#household-item-name').fill(' shampoo ');
+        await owner.locator('#household-item-unit').fill('ml');
+        await owner.getByRole('button', { name: 'Save household item', exact: true }).click();
+        await owner.getByRole('alert').filter({ hasText: 'Restore it from Archived items' }).waitFor();
+        await owner.getByRole('link', { name: 'Archived items', exact: true }).click();
+        await owner.locator('.archived-item-controls:not([disabled])').waitFor();
+        await owner.reload();
+        await owner.locator('.archived-item-controls:not([disabled])').waitFor();
+        await card(owner, 'Shampoo').getByText('Expected Weekly Usage: 0.25 bottles per week', { exact: true }).waitFor();
+        await card(owner, 'Shampoo').getByRole('button', { name: 'Restore', exact: true }).click();
+        await status(owner, 'Household item restored.');
+        await card(owner, 'Shampoo').waitFor({ state: 'detached' });
+        await owner.getByRole('link', { name: 'Active catalogue', exact: true }).click(); await ready(owner);
+        await card(owner, 'Shampoo').getByText('Expected Weekly Usage: 0.25 bottles per week', { exact: true }).waitFor();
+        await owner.goto(baseUri + '/HouseholdItems/Planning');
+        await owner.locator('.planning-controls:not([disabled])').waitFor();
+        await owner.getByLabel('Planning Period (weeks)', { exact: true }).fill('3');
+        await owner.getByLabel('Planning Period (weeks)', { exact: true }).blur();
+        await card(owner, 'Shampoo').getByText('Expected consumption: 0.75 bottles', { exact: true }).waitFor();
+        await owner.goto(baseUri + '/HouseholdItems'); await ready(owner);
+        await card(owner, 'Oven cleaner').getByRole('button', { name: 'Archive', exact: true }).click();
+        await status(owner, 'Household item archived.');
+        await owner.getByRole('link', { name: 'Archived items', exact: true }).click();
+        await owner.locator('.archived-item-controls:not([disabled])').waitFor();
+        await card(owner, 'Oven cleaner').getByText('No Expected Weekly Usage set.', { exact: true }).waitFor();
+        await card(owner, 'Oven cleaner').getByRole('button', { name: 'Restore', exact: true }).click();
+        await status(owner, 'Household item restored.');
+        await owner.goto(baseUri + '/HouseholdItems'); await ready(owner);
+        await card(owner, 'Oven cleaner').getByText('No Expected Weekly Usage set.', { exact: true }).waitFor();
+        await card(owner, 'Shampoo').getByRole('button', { name: 'Edit', exact: true }).click();
+        await owner.getByText('Edit household item name', { exact: true }).waitFor();
+        await owner.getByLabel('Expected Weekly Usage', { exact: true }).fill('0.5');
+        await owner.getByRole('button', { name: 'Save household item', exact: true }).click();
+        await status(owner, 'Household item saved.');
+        await card(owner, 'Shampoo').getByText('Expected Weekly Usage: 0.5 bottles per week', { exact: true }).waitFor();
+        await owner.goto(baseUri + '/HouseholdItems/Planning');
+        await owner.locator('.planning-controls:not([disabled])').waitFor();
+        await owner.getByLabel('Planning Period (weeks)', { exact: true }).fill('3');
+        await owner.getByLabel('Planning Period (weeks)', { exact: true }).blur();
+        await card(owner, 'Shampoo').getByText('Expected consumption: 1.5 bottles', { exact: true }).waitFor();
+        await owner.goto(baseUri + '/HouseholdItems'); await ready(owner);
+        await card(owner, 'Shampoo').getByRole('button', { name: 'Edit', exact: true }).click();
+        await owner.getByText('Edit household item name', { exact: true }).waitFor();
+        await owner.getByLabel('Expected Weekly Usage', { exact: true }).fill('');
+        await owner.getByRole('button', { name: 'Save household item', exact: true }).click();
+        await status(owner, 'Household item saved.');
+        await card(owner, 'Shampoo').getByText('No Expected Weekly Usage set.', { exact: true }).waitFor();
+        console.log('Restore preserves units and optional baselines; restored baseline stays editable and clearable.');
+
     } catch (error) {
         if (diagnosticPage) console.error('Browser failure page: ' + await diagnosticPage.locator('body').innerText());
         throw error;

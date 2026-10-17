@@ -61,6 +61,7 @@ builder.Services.AddScoped<HomeHub.Web.Modules.MealPlanner.PlanWeek.PlanWeek>();
 builder.Services.AddScoped<HomeHub.Web.Modules.MealPlanner.ManagePlannerSettings.ManagePlannerSettings>();
 builder.Services.AddScoped<HomeHub.Web.Modules.MealPlanner.CreateMealFromPlanner.CreateMealFromPlanner>();
 builder.Services.AddScoped<HomeHub.Web.Modules.HouseholdItems.ManageCatalogue.ManageCatalogue>();
+builder.Services.AddScoped<HomeHub.Web.Modules.HouseholdItems.ManageArchived.ManageArchived>();
 builder.Services.AddScoped<HomeHub.Web.Modules.HouseholdItems.PlanConsumption.PlanConsumption>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);

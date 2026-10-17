@@ -101,6 +101,9 @@ namespace HomeHub.Web.Data.Migrations
                     b.Property<Guid>("HouseholdId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)

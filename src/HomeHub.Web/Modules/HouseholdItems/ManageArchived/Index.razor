@@ -1,0 +1,49 @@
+@page "/HouseholdItems/Archived"
+@attribute [Authorize]
+@layout AppLayout
+@using HomeHub.Web.Modules.Households
+@inject ManageArchived UseCase
+@inject AuthenticationStateProvider Auth
+<PageTitle>Archived household items</PageTitle>
+<h1>Archived Household Items</h1>
+<p><a href="/HouseholdItems">Active catalogue</a></p>
+<p>Restore an item with its previous unit and optional Expected Weekly Usage to include it in active planning again.</p>
+<fieldset class="archived-item-controls" disabled="@(!interactiveReady || busy)" aria-label="Archived household item management">
+@if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
+@if (notice is not null) { <p role="status">@notice</p> }
+<BbButton OnClick="Refresh" Disabled="busy">Refresh archived items</BbButton>
+@if (items.Count == 0 && error is null) { <p>No archived household items.</p> }
+@foreach (var item in items) {
+    <div class="card" @key="item.Id"><strong>@item.Name</strong>
+        <p>Usage unit: @item.Unit</p>
+        @if (item.ExpectedWeeklyUsage is { } quantity) { <p>Expected Weekly Usage: @quantity.ToString("0.####") @item.Unit per week</p> }
+        else { <p>No Expected Weekly Usage set.</p> }
+        <BbButton OnClick="() => Restore(item)" Disabled="busy">Restore</BbButton>
+    </div>
+}
+</fieldset>
+@code {
+    private bool interactiveReady, busy;
+    private IReadOnlyList<ManageArchived.Item> items = [];
+    private string? error, notice;
+    protected override async Task OnInitializedAsync() => await Refresh();
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender) { interactiveReady = true; StateHasChanged(); }
+    }
+    private async Task Refresh() => await Run(async () => {
+        items = await UseCase.ListAsync((await Auth.GetAuthenticationStateAsync()).User);
+    });
+    private async Task Restore(ManageArchived.Item item) => await Run(async () => {
+        var actor = (await Auth.GetAuthenticationStateAsync()).User;
+        await UseCase.RestoreAsync(actor, item.Id, item.Version);
+        items = await UseCase.ListAsync(actor); notice = "Household item restored.";
+    });
+    private async Task Run(Func<Task> action)
+    {
+        if (busy) return; busy = true; error = null; notice = null;
+        try { await action(); }
+        catch (HouseholdRuleException ex) { error = ex.Message; items = []; }
+        finally { busy = false; }
+    }
+}

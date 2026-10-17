@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @layout AppLayout
 @using HomeHub.Web.Modules.Households
+@using HomeHub.Web.Modules.HouseholdItems.Shared
 @inject ManageArchived UseCase
 @inject AuthenticationStateProvider Auth
 <PageTitle>Archived household items</PageTitle>
@@ -14,10 +15,8 @@
 <BbButton OnClick="Refresh" Disabled="busy">Refresh archived items</BbButton>
 @if (items.Count == 0 && error is null) { <p>No archived household items.</p> }
 @foreach (var item in items) {
-    <div class="card" @key="item.Id"><strong>@item.Name</strong>
-        <p>Usage unit: @item.Unit</p>
-        @if (item.ExpectedWeeklyUsage is { } quantity) { <p>Expected Weekly Usage: @quantity.ToString("0.####") @item.Unit per week</p> }
-        else { <p>No Expected Weekly Usage set.</p> }
+    <div class="card" @key="item.Id">
+        <HouseholdItemSummary Name="@item.Name" Unit="@item.Unit" ExpectedWeeklyUsage="item.ExpectedWeeklyUsage" />
         <BbButton OnClick="() => Restore(item)" Disabled="busy">Restore</BbButton>
     </div>
 }

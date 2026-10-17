@@ -14,7 +14,15 @@ module.exports = async function verifyCatalogue(baseUri) {
         for (const page of [owner, member, stranger]) page.on('pageerror', e => errors.push(e.message));
         const card = (page, name) => page.locator('.card').filter({ has: page.getByText(name, { exact: true }) });
         const ready = async page => { diagnosticPage = page; await page.locator('.household-item-controls:not([disabled])').waitFor(); };
-        const status = (page, text) => page.getByRole('status').filter({ hasText: text }).waitFor();
+        const status = async (page, text) => {
+            await page.getByRole('status').filter({ hasText: text }).waitFor();
+            if (text === 'Household item saved.') await page.getByRole('dialog').waitFor({ state: 'hidden' });
+        };
+        const add = async page => {
+            await page.getByRole('button', { name: 'Add household item', exact: true }).click();
+            await page.getByRole('dialog', { name: 'Add household item', exact: true }).waitFor();
+            await page.locator('.household-item-editor-controls:not([disabled])').waitFor();
+        };
         async function register(page, name, code) {
             await page.goto(baseUri + '/Account/Register');
             await page.locator('#name').fill(name);
@@ -30,18 +38,37 @@ module.exports = async function verifyCatalogue(baseUri) {
         await owner.goto(baseUri + '/HouseholdItems');
         await ready(owner);
         await owner.getByText('No household items yet.', { exact: false }).waitFor();
+        assert.equal(await owner.locator('#household-item-name').count(), 0, 'Editor must be closed on the catalogue');
+        await add(owner);
+        await owner.waitForFunction(() => document.activeElement?.id === 'household-item-name');
+        await owner.locator('#household-item-name').fill('Unsaved draft');
+        await owner.mouse.click(2, 2);
+        assert.equal(await owner.getByRole('dialog', { name: 'Add household item', exact: true }).isVisible(), true);
+        assert.equal(await owner.locator('#household-item-name').inputValue(), 'Unsaved draft');
+        await owner.locator('#household-item-name').focus();
+        await owner.keyboard.press('Shift+Tab');
+        assert.equal(await owner.getByRole('dialog').evaluate(dialog => dialog.contains(document.activeElement)), true, 'Keyboard focus stays in the modal');
+        await owner.keyboard.press('Escape');
+        await owner.getByRole('dialog').waitFor({ state: 'hidden' });
+        await owner.waitForFunction(() => document.activeElement?.textContent?.trim() === 'Add household item');
+        await add(owner);
+        assert.equal(await owner.locator('#household-item-name').inputValue(), '', 'Reopening discards unsaved entries');
+        await owner.getByRole('button', { name: 'Cancel', exact: true }).click();
+        await owner.getByRole('dialog').waitFor({ state: 'hidden' });
         console.log('Catalogue empty state reached.');
         await owner.getByRole('link', { name: 'Planning totals', exact: true }).click();
         await owner.locator('.planning-controls:not([disabled])').waitFor();
         assert.equal(await owner.getByLabel('Planning Period (weeks)', { exact: true }).inputValue(), '1');
         await owner.getByText('No expected consumption to total.', { exact: false }).waitFor();
         await owner.goto(baseUri + '/HouseholdItems'); await ready(owner);
+        await add(owner);
         for (const label of ['rolls', 'bottles', 'tablets', 'bags', 'ml', 'litres'])
             assert.equal(await owner.locator('datalist option').filter({ hasText: label }).count() > 0 || await owner.locator(`datalist option[value="${label}"]`).count() > 0, true);
         await owner.locator('#household-item-name').fill('Toilet roll');
         await owner.locator('#household-item-unit').fill('rolls');
         await owner.getByRole('button', { name: 'Save household item', exact: true }).click();
         await status(owner, 'Household item saved.');
+        await owner.waitForFunction(() => document.activeElement?.id === 'household-item-add');
         await card(owner, 'Toilet roll').getByText('Usage unit: rolls', { exact: true }).waitFor();
         await owner.reload(); await ready(owner);
         await card(owner, 'Toilet roll').getByRole('button', { name: 'Edit', exact: true }).click();
@@ -58,8 +85,9 @@ module.exports = async function verifyCatalogue(baseUri) {
         await card(owner, 'Soft toilet roll').getByRole('button', { name: 'Edit', exact: true }).click();
         await owner.getByText('Edit household item name', { exact: true }).waitFor();
         await owner.locator('#household-item-name').fill('Discarded name');
-        await owner.getByRole('button', { name: 'Cancel edit', exact: true }).click();
+        await owner.getByRole('button', { name: 'Cancel', exact: true }).click();
         await status(owner, 'Edit cancelled.');
+        assert.equal(await card(owner, 'Soft toilet roll').getByRole('button', { name: 'Edit', exact: true }).evaluate(button => button === document.activeElement), true, 'Focus returns to the edited item');
         await card(owner, 'Soft toilet roll').waitFor();
         // A fractional recurring baseline survives reload, can change, and can be cleared.
         await card(owner, 'Soft toilet roll').getByRole('button', { name: 'Edit', exact: true }).click();
@@ -117,7 +145,7 @@ module.exports = async function verifyCatalogue(baseUri) {
         await owner.locator('#household-item-unit').fill('rolls');
         await owner.locator('#household-item-unit').blur();
         await owner.getByLabel('Replacement Expected Weekly Usage', { exact: true }).fill('6');
-        await owner.getByRole('button', { name: 'Cancel edit', exact: true }).click();
+        await owner.getByRole('button', { name: 'Cancel', exact: true }).click();
         await status(owner, 'Edit cancelled.');
         await card(owner, 'Soft toilet roll').getByText('Expected Weekly Usage: 0.0001 sheets per week', { exact: true }).waitFor();
         await card(owner, 'Soft toilet roll').getByRole('button', { name: 'Edit', exact: true }).click();
@@ -130,6 +158,7 @@ module.exports = async function verifyCatalogue(baseUri) {
         await owner.reload(); await ready(owner);
         await card(owner, 'Soft toilet roll').getByText('Expected Weekly Usage: 6 rolls per week', { exact: true }).waitFor();
         console.log('Unit changes require explicit replacement; invalid saves/cancellation preserve both values.');
+        await add(owner);
         await owner.locator('#household-item-name').fill('Shampoo');
         await owner.locator('#household-item-unit').fill('bottles');
         await owner.getByLabel('Expected Weekly Usage', { exact: true }).fill('0.25');
@@ -186,6 +215,7 @@ module.exports = async function verifyCatalogue(baseUri) {
         await owner.getByRole('button', { name: 'Save household item', exact: true }).click();
         await status(owner, 'Household item saved.');
         console.log('Replacement entry resets for each different unit; trimmed-equivalent units and validation retain input.');
+        await add(owner);
         await owner.locator('#household-item-name').fill('Oven cleaner');
         await owner.locator('#household-item-unit').fill('bottles');
         await owner.getByRole('button', { name: 'Save household item', exact: true }).click();
@@ -233,6 +263,7 @@ module.exports = async function verifyCatalogue(baseUri) {
         await card(owner, 'Shampoo').waitFor();
         await plan.close();
         console.log('Planning default, exact fractional totals, supported numeric limit, invalid periods, current baselines and clear passed.');
+        await add(owner);
         await owner.locator('#household-item-name').fill(' soft toilet roll ');
         await owner.locator('#household-item-unit').fill('sheets');
         await owner.getByRole('button', { name: 'Save household item', exact: true }).click();
@@ -243,8 +274,20 @@ module.exports = async function verifyCatalogue(baseUri) {
         await owner.getByText('Enter a usage unit', { exact: false }).waitFor();
         await owner.reload(); await ready(owner);
         if (process.env.HOMEHUB_BROWSER_ARTIFACTS) await owner.screenshot({ path: path.join(process.env.HOMEHUB_BROWSER_ARTIFACTS, 'household-items-desktop.png'), fullPage: true });
+        await add(owner);
+        if (process.env.HOMEHUB_BROWSER_ARTIFACTS) await owner.screenshot({ path: path.join(process.env.HOMEHUB_BROWSER_ARTIFACTS, 'household-item-modal-desktop.png'), fullPage: true, animations: 'disabled' });
         await owner.setViewportSize({ width: 390, height: 844 });
+        await owner.waitForFunction(() => {
+            const bounds = document.querySelector('[role="dialog"]').getBoundingClientRect();
+            return bounds.x >= 0 && bounds.right <= innerWidth + 1 && bounds.height <= innerHeight;
+        });
         assert.equal(await owner.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'Catalogue overflows narrow viewport');
+        const modalBounds = await owner.getByRole('dialog').boundingBox();
+        assert.equal(modalBounds.x >= 0 && modalBounds.x + modalBounds.width <= 391 && modalBounds.height <= 844, true, `Modal fits the narrow viewport: ${JSON.stringify(modalBounds)}`);
+        await owner.getByRole('button', { name: 'Cancel', exact: true }).scrollIntoViewIfNeeded();
+        if (process.env.HOMEHUB_BROWSER_ARTIFACTS) await owner.screenshot({ path: path.join(process.env.HOMEHUB_BROWSER_ARTIFACTS, 'household-item-modal-mobile.png'), fullPage: true, animations: 'disabled' });
+        await owner.getByRole('button', { name: 'Cancel', exact: true }).click();
+        await owner.getByRole('dialog').waitFor({ state: 'hidden' });
         if (process.env.HOMEHUB_BROWSER_ARTIFACTS) await owner.screenshot({ path: path.join(process.env.HOMEHUB_BROWSER_ARTIFACTS, 'household-items-mobile.png'), fullPage: true });
         await owner.setViewportSize({ width: 1280, height: 900 });
         console.log('Catalogue create/edit/reload/custom units/cancel/validation/mobile passed.');
@@ -290,6 +333,7 @@ module.exports = async function verifyCatalogue(baseUri) {
         await stranger.goto(baseUri + '/HouseholdItems'); await ready(stranger);
         assert.equal(await card(stranger, 'Shared toilet roll').count(), 0);
         await stranger.getByText('No household items yet.', { exact: false }).waitFor();
+        await add(stranger);
         await stranger.locator('#household-item-name').fill('Shared toilet roll');
         await stranger.locator('#household-item-unit').fill('bottles');
         await stranger.getByLabel('Expected Weekly Usage', { exact: true }).fill('0.75');
@@ -439,10 +483,12 @@ module.exports = async function verifyCatalogue(baseUri) {
         assert.equal(await card(archivePlan, 'Shampoo').count(), 0);
         await archivePlan.close();
         console.log('Archive persists and excludes saved usage from catalogue and planning.');
+        await add(owner);
         await owner.locator('#household-item-name').fill(' shampoo ');
         await owner.locator('#household-item-unit').fill('ml');
         await owner.getByRole('button', { name: 'Save household item', exact: true }).click();
         await owner.getByRole('alert').filter({ hasText: 'Restore it from Archived items' }).waitFor();
+        await owner.getByRole('button', { name: 'Cancel', exact: true }).click();
         await owner.getByRole('link', { name: 'Archived items', exact: true }).click();
         await owner.locator('.archived-item-controls:not([disabled])').waitFor();
         await owner.reload();

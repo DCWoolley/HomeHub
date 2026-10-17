@@ -37,4 +37,4 @@ const verify = require('./Test-HouseholdItemsBrowser.cjs');
         const result = spawnSync('sqlcmd', ['-S', '(localdb)\\MSSQLLocalDB', '-E', '-b', '-Q', `IF DB_ID(N'${database}') IS NOT NULL BEGIN ALTER DATABASE [${database}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [${database}]; END`], { windowsHide: true, encoding: 'utf8' });
         if (result.status !== 0) { console.error('Test database cleanup failed: ' + result.stderr); process.exitCode = 1; }
     }
-})().catch(e => { console.error(e.message); process.exitCode = 1; });
+})().catch(e => { console.error(e.stack || e.message); process.exitCode = 1; });

@@ -46,3 +46,20 @@ The user approved the four-ticket breakdown and requested implementation using i
 
 Terms are captured in the root GLOSSARY.md. No architectural trade-off requiring an ADR has been agreed yet.
 
+## Follow-up: Add/Edit modal
+
+Status: Modal design approved and implemented; authenticated browser verification and regression checks passed.
+
+The user requested a create/edit modal matching the Ingredients editor instead of the permanent form at the top of the Household Items Catalogue.
+
+### Confirmed decisions
+
+- Use one shared Add/Edit Household Item modal containing name, default usage unit, optional Expected Weekly Usage, and the conditional replacement quantity when changing the unit of an existing baseline.
+- After a successful save, close the modal and refresh the catalogue.
+- Keep validation errors inside the open modal and retain the entered values.
+
+### Confirmed interactions and reference
+
+The modal reference is the Ingredients editor on the separate ingredients-revamp branch. This Household Items branch still has the older inline Ingredients editor. The reference has Save and Cancel, Escape cancellation, no close icon, no dismissal on overlay click, and dismissal disabled during a save. Its dialog scrolls on narrow screens and provides keyboard focus management.
+
+The user confirmed Cancel and Escape discard unsaved edits, overlay clicks keep the modal open, and dismissal is blocked while saving. Keep the existing catalogue cards, with an Add household item button and each card's Edit action opening the shared modal. Keyboard focus is contained within the dialog and returns to the invoking action on dismissal; the modal scrolls within a narrow viewport. This is a presentation change and introduces no domain terms or architectural decision requiring an ADR.

@@ -1,84 +1,80 @@
 @page "/HouseholdItems"
 @attribute [Authorize]
 @layout AppLayout
+@implements IAsyncDisposable
+@using Microsoft.JSInterop
 @using HomeHub.Web.Modules.Households
 @using HomeHub.Web.Modules.HouseholdItems.Shared
 @inject ManageCatalogue UseCase
 @inject AuthenticationStateProvider Auth
+@inject ILogger<Index> Logger
+@inject IJSRuntime JS
 <PageTitle>Household items</PageTitle>
 <h1>Household Items Catalogue</h1>
 <p><a href="/HouseholdItems/Planning">Planning totals</a> · <a href="/HouseholdItems/Archived">Archived items</a></p>
 <p>Keep a shared list of non-food consumables such as toilet roll, shampoo, and laundry detergent.</p>
 <fieldset class="household-item-controls" disabled="@(!interactiveReady || busy)" aria-label="Household item management">
-@if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
-@if (notice is not null) { <p role="status">@notice</p> }
-<EditForm Model="input" OnValidSubmit="Save" FormName="household-item">
-    <DataAnnotationsValidator /><ValidationSummary />
-    <label for="household-item-name">@(input.Id is null ? "New household item name" : "Edit household item name")</label>
-    <InputText id="household-item-name" @bind-Value="input.Name" maxlength="100" disabled="@busy" />
-    <label for="household-item-unit">Default usage unit</label>
-    <InputText id="household-item-unit" @bind-Value:get="input.Unit" @bind-Value:set="SetUnit" maxlength="50" list="household-item-units" aria-describedby="unit-help" disabled="@busy" />
-    <datalist id="household-item-units">
-        @foreach (var unit in ManageCatalogue.SuggestedUnits) { <option value="@unit">@unit</option> }
-    </datalist>
-    <small id="unit-help">Choose a suggestion or enter your own label. Units are labels; quantities are not automatically converted.</small>
-    @if (editingItem?.ExpectedWeeklyUsage is not null && input.Unit.Trim() != editingItem.Unit) {
-        <label for="household-item-replacement">Replacement Expected Weekly Usage</label>
-        <InputText id="household-item-replacement" @bind-Value="input.ReplacementWeeklyUsage" inputmode="decimal" aria-describedby="usage-help replacement-help" />
-        <small id="replacement-help">Changing the unit requires a quantity explicitly entered in the new unit. Both save together. To remove the baseline, clear it before changing the unit.</small>
-    } else {
-        <label for="household-item-usage">Expected Weekly Usage</label>
-        <InputText id="household-item-usage" @bind-Value="input.ExpectedWeeklyUsage" inputmode="decimal" aria-describedby="usage-help" />
+    <div class="actions"><BbButton id="household-item-add" OnClick="Add" Disabled="busy">Add household item</BbButton><BbButton OnClick="Refresh" Disabled="busy">Refresh catalogue</BbButton></div>
+    @if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
+    @if (notice is not null) { <p role="status">@notice</p> }
+    @if (items.Count == 0 && error is null) { <p>No household items yet. Add your first item to get started.</p> }
+    @foreach (var item in items) {
+        <div class="card" @key="item.Id">
+            <HouseholdItemSummary Name="@item.Name" Unit="@item.Unit" ExpectedWeeklyUsage="item.ExpectedWeeklyUsage" />
+            <div class="actions"><BbButton id="@($"household-item-edit-{item.Id}")" OnClick="() => Edit(item)" Disabled="busy">Edit</BbButton><BbButton OnClick="() => Archive(item)" Disabled="busy">Archive</BbButton></div>
+        </div>
     }
-    <small id="usage-help">Optional recurring consumption, not a quantity to buy. Leave blank to clear. Use 0.0001 to 99,999,999.9999 with at most four decimal places (example: @((0.25m).ToString("0.####"))).</small>
-    <div class="actions"><BbButton Type="ButtonType.Submit" Disabled="busy">Save household item</BbButton>
-    @if (input.Id is not null) { <BbButton OnClick="Cancel" Disabled="busy">Cancel edit</BbButton> }
-    <BbButton OnClick="Refresh" Disabled="busy">Refresh catalogue</BbButton></div>
-</EditForm>
-@if (items.Count == 0 && error is null) { <p>No household items yet. Add your first item above.</p> }
-@foreach (var item in items) {
-    <div class="card" @key="item.Id">
-        <HouseholdItemSummary Name="@item.Name" Unit="@item.Unit" ExpectedWeeklyUsage="item.ExpectedWeeklyUsage" />
-        <div class="actions"><BbButton OnClick="() => Edit(item)" Disabled="busy">Edit</BbButton><BbButton OnClick="() => Archive(item)" Disabled="busy">Archive</BbButton></div>
-    </div>
-}
 </fieldset>
+@if (input is not null) { <HouseholdItemEditor Input="input" ExistingItem="editingItem" Saved="Saved" Closed="Cancel" /> }
 @code {
     private bool interactiveReady, busy;
-    private ManageCatalogue.Request input = new();
+    private ManageCatalogue.Request? input;
     private ManageCatalogue.Item? editingItem;
     private IReadOnlyList<ManageCatalogue.Item> items = [];
     private string? error, notice;
+    private string focusTarget = "household-item-add";
+    private bool restoreFocus;
+    private IJSObjectReference? focusModule;
     protected override async Task OnInitializedAsync() => await Refresh();
-    protected override void OnAfterRender(bool firstRender)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender) { interactiveReady = true; StateHasChanged(); }
+        if (restoreFocus && input is null && !busy) {
+            restoreFocus = false;
+            focusModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./Modules/HouseholdItems/ManageCatalogue/Index.razor.js");
+            await focusModule.InvokeVoidAsync("focusTrigger", focusTarget);
+        }
     }
     private async Task Refresh() => await Run(async () => {
         items = await UseCase.ListAsync((await Auth.GetAuthenticationStateAsync()).User);
     });
-    private void Edit(ManageCatalogue.Item item) { editingItem = item; input = new() { Id = item.Id, Version = item.Version, Name = item.Name, Unit = item.Unit, ExpectedWeeklyUsage = item.ExpectedWeeklyUsage?.ToString("0.####") ?? "" }; error = null; notice = null; }
-    private void SetUnit(string value)
+    private void Add() { focusTarget = "household-item-add"; input = new(); editingItem = null; error = notice = null; }
+    private void Edit(ManageCatalogue.Item item) { focusTarget = $"household-item-edit-{item.Id}"; editingItem = item; input = new() { Id = item.Id, Version = item.Version, Name = item.Name, Unit = item.Unit, ExpectedWeeklyUsage = item.ExpectedWeeklyUsage?.ToString("0.####") ?? "" }; error = notice = null; }
+    private void Cancel() { notice = input?.Id is null ? "Add cancelled." : "Edit cancelled."; input = null; editingItem = null; restoreFocus = true; }
+    private async Task Saved(Guid id)
     {
-        if (input.Unit.Trim() != value.Trim()) input.ReplacementWeeklyUsage = "";
-        input.Unit = value;
+        input = null; editingItem = null;
+        await Refresh();
+        if (error is null) notice = "Household item saved.";
+        restoreFocus = true;
     }
-    private void Cancel() { input = new(); editingItem = null; error = null; notice = "Edit cancelled."; }
     private async Task Archive(ManageCatalogue.Item item) => await Run(async () => {
         var actor = (await Auth.GetAuthenticationStateAsync()).User;
         await UseCase.ArchiveAsync(actor, item.Id, item.Version);
-        input = new(); editingItem = null; items = await UseCase.ListAsync(actor); notice = "Household item archived.";
-    });
-    private async Task Save() => await Run(async () => {
-        var actor = (await Auth.GetAuthenticationStateAsync()).User;
-        await UseCase.SaveAsync(actor, input);
-        input = new(); editingItem = null; items = await UseCase.ListAsync(actor); notice = "Household item saved.";
+        items = await UseCase.ListAsync(actor); notice = "Household item archived.";
     });
     private async Task Run(Func<Task> action)
     {
         if (busy) return; busy = true; error = null; notice = null;
         try { await action(); }
         catch (HouseholdRuleException ex) { error = ex.Message; items = []; }
+        catch (Exception ex) { Logger.LogError(ex, "Could not update household item catalogue."); error = "Could not update the catalogue. Please refresh and try again."; }
         finally { busy = false; }
+    }
+    public async ValueTask DisposeAsync()
+    {
+        if (focusModule is null) return;
+        try { await focusModule.DisposeAsync(); }
+        catch (JSDisconnectedException) { }
     }
 }

@@ -17,7 +17,7 @@ public sealed class PlanConsumption(IDbContextFactory<ApplicationDbContext> fact
         if (!int.TryParse(period, NumberStyles.None, CultureInfo.InvariantCulture, out var weeks) || weeks <= 0)
             throw new HouseholdRuleException("Enter a positive whole number of weeks from 1 to 2,147,483,647 (the supported numeric range).");
         var items = await db.HouseholdItems.AsNoTracking()
-            .Where(x => x.HouseholdId == current.HouseholdId && x.ExpectedWeeklyUsage != null)
+            .Where(x => x.HouseholdId == current.HouseholdId && !x.IsArchived && x.ExpectedWeeklyUsage != null)
             .OrderBy(x => x.Name).Select(x => new { x.Name, x.Unit, x.ExpectedWeeklyUsage }).ToListAsync(ct);
         return items.Select(x => new Item(x.Name, x.Unit, x.ExpectedWeeklyUsage!.Value, x.ExpectedWeeklyUsage.Value * weeks)).ToList();
     }

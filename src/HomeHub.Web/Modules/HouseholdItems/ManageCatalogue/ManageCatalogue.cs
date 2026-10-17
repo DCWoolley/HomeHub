@@ -25,7 +25,7 @@ public sealed class ManageCatalogue(IDbContextFactory<ApplicationDbContext> fact
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         var current = await HouseholdAccess.RequireAsync(db, actor, ct: ct);
-        return await db.HouseholdItems.AsNoTracking().Where(x => x.HouseholdId == current.HouseholdId)
+        return await db.HouseholdItems.AsNoTracking().Where(x => x.HouseholdId == current.HouseholdId && !x.IsArchived)
             .OrderBy(x => x.Name).Select(x => new Item(x.Id, x.Name, x.Unit, x.ExpectedWeeklyUsage, x.Version)).ToListAsync(ct);
     }
 
@@ -40,14 +40,18 @@ public sealed class ManageCatalogue(IDbContextFactory<ApplicationDbContext> fact
             throw new HouseholdRuleException("Enter a usage unit of up to 50 characters.");
         var name = input.Name.Trim();
         var normalized = name.ToUpperInvariant();
-        if (await db.HouseholdItems.AnyAsync(x => x.HouseholdId == current.HouseholdId && x.NormalizedName == normalized && x.Id != input.Id, ct))
-            throw new HouseholdRuleException("A household item with this name already exists. Edit it from the catalogue.");
+        var duplicate = await db.HouseholdItems.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.HouseholdId == current.HouseholdId && x.NormalizedName == normalized && x.Id != input.Id, ct);
+        if (duplicate is not null)
+            throw new HouseholdRuleException(duplicate.IsArchived
+                ? "A household item with this name already exists. Restore it from Archived items."
+                : "A household item with this name already exists. Edit it from the catalogue.");
         var item = input.Id is { } id
             ? await db.HouseholdItems.SingleOrDefaultAsync(x => x.Id == id && x.HouseholdId == current.HouseholdId, ct)
                 ?? throw new HouseholdRuleException("Household item not found. Refresh the catalogue.")
             : new HouseholdItem { HouseholdId = current.HouseholdId };
         if (input.Id is null) db.HouseholdItems.Add(item);
-        else if (input.Version != item.Version)
+        else if (item.IsArchived || input.Version != item.Version)
             throw new HouseholdRuleException("This household item changed since you opened the editor. Cancel the edit, refresh the catalogue and reopen it before saving.");
         item.Name = name;
         item.NormalizedName = normalized;
@@ -61,6 +65,21 @@ public sealed class ManageCatalogue(IDbContextFactory<ApplicationDbContext> fact
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         return item.Id;
+    }
+
+    public async Task ArchiveAsync(ClaimsPrincipal actor, Guid id, Guid version, CancellationToken ct = default)
+    {
+        await using var db = await factory.CreateDbContextAsync(ct);
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        var current = await HouseholdAccess.LockAsync(db, actor, ct: ct);
+        var item = await db.HouseholdItems.SingleOrDefaultAsync(x => x.Id == id && x.HouseholdId == current.HouseholdId, ct)
+            ?? throw new HouseholdRuleException("Household item not found. Refresh the catalogue.");
+        if (item.IsArchived) throw new HouseholdRuleException("This household item is already archived. Refresh the catalogue.");
+        if (item.Version != version) throw new HouseholdRuleException("This household item changed since you loaded it. Refresh the catalogue before archiving.");
+        item.IsArchived = true;
+        item.Version = Guid.NewGuid();
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
     }
 
     private static decimal? ParseUsage(string value)

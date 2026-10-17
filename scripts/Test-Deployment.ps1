@@ -59,10 +59,10 @@ try {
     $recipeIngredientId = [Guid]::NewGuid().ToString()
     Invoke-TestSql "SET XACT_ABORT ON; BEGIN TRANSACTION; DECLARE @h uniqueidentifier=(SELECT Id FROM Households WHERE Name=N'$householdName'); IF @h IS NULL THROW 50000,'Test household missing.',1; DECLARE @u uniqueidentifier=NEWID(); INSERT INTO IngredientUnits (Id,HouseholdId,Name,NormalizedName) VALUES (@u,@h,N'grams',N'GRAMS'); INSERT INTO Meals (Id,HouseholdId,Name,NormalizedName) VALUES ('$recipeMealId',@h,N'Verification pasta bake',N'VERIFICATION PASTA BAKE'); INSERT INTO Ingredients (Id,HouseholdId,Name,NormalizedName,UnitId,Amount) VALUES ('$recipeIngredientId',@h,N'Verification pasta',N'VERIFICATION PASTA',@u,500); INSERT INTO RecipeItems (HouseholdId,MealId,IngredientId,Quantity) VALUES (@h,'$recipeMealId','$recipeIngredientId',250); COMMIT TRANSACTION;" | Out-Null
     $recipePath = "/Meals/$recipeMealId/Recipe"
-    foreach ($path in @('/Dashboard','/Meals','/Ingredients',$recipePath,'/MealPlanner','/MealPlanner/Settings','/Household','/Household/Members','/Household/Accounts','/Household/Invitations','/Household/Ownership','/Household/Leave','/Account/Manage')) {
+    foreach ($path in @('/Dashboard','/HouseholdItems','/HouseholdItems/Planning','/HouseholdItems/Archived','/Meals','/Ingredients',$recipePath,'/MealPlanner','/MealPlanner/Settings','/Household','/Household/Members','/Household/Accounts','/Household/Invitations','/Household/Ownership','/Household/Leave','/Account/Manage')) {
         $page = Invoke-WebRequest "$BaseUri$path" -WebSession $ownerSession
         Assert-Condition ($page.StatusCode -eq 200) "Authenticated route failed: $path"
-        if ($path -in @('/Meals', '/Ingredients', $recipePath, '/MealPlanner', '/MealPlanner/Settings')) {
+        if ($path -in @('/HouseholdItems', '/HouseholdItems/Planning', '/HouseholdItems/Archived', '/Meals', '/Ingredients', $recipePath, '/MealPlanner', '/MealPlanner/Settings')) {
             Assert-Condition ($page.Content -match '<!--Blazor:\{"type":"server"') "Interactive server marker missing: $path"
         }
         if ($path -eq $recipePath) {

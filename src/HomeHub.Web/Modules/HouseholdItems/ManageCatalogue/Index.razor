@@ -6,7 +6,7 @@
 @inject AuthenticationStateProvider Auth
 <PageTitle>Household items</PageTitle>
 <h1>Household Items Catalogue</h1>
-<p><a href="/HouseholdItems/Planning">Planning totals</a></p>
+<p><a href="/HouseholdItems/Planning">Planning totals</a> · <a href="/HouseholdItems/Archived">Archived items</a></p>
 <p>Keep a shared list of non-food consumables such as toilet roll, shampoo, and laundry detergent.</p>
 <fieldset class="household-item-controls" disabled="@(!interactiveReady || busy)" aria-label="Household item management">
 @if (error is not null) { <p class="alert alert-danger" role="alert">@error</p> }
@@ -40,7 +40,7 @@
         <p>Usage unit: @item.Unit</p>
         @if (item.ExpectedWeeklyUsage is { } quantity) { <p>Expected Weekly Usage: @quantity.ToString("0.####") @item.Unit per week</p> }
         else { <p>No Expected Weekly Usage set.</p> }
-        <div class="actions"><BbButton OnClick="() => Edit(item)" Disabled="busy">Edit</BbButton></div>
+        <div class="actions"><BbButton OnClick="() => Edit(item)" Disabled="busy">Edit</BbButton><BbButton OnClick="() => Archive(item)" Disabled="busy">Archive</BbButton></div>
     </div>
 }
 </fieldset>
@@ -60,6 +60,11 @@
     });
     private void Edit(ManageCatalogue.Item item) { editingItem = item; input = new() { Id = item.Id, Version = item.Version, Name = item.Name, Unit = item.Unit, ExpectedWeeklyUsage = item.ExpectedWeeklyUsage?.ToString("0.####") ?? "" }; error = null; notice = null; }
     private void Cancel() { input = new(); editingItem = null; error = null; notice = "Edit cancelled."; }
+    private async Task Archive(ManageCatalogue.Item item) => await Run(async () => {
+        var actor = (await Auth.GetAuthenticationStateAsync()).User;
+        await UseCase.ArchiveAsync(actor, item.Id, item.Version);
+        input = new(); editingItem = null; items = await UseCase.ListAsync(actor); notice = "Household item archived.";
+    });
     private async Task Save() => await Run(async () => {
         var actor = (await Auth.GetAuthenticationStateAsync()).User;
         await UseCase.SaveAsync(actor, input);

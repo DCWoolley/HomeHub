@@ -8,5 +8,6 @@ public sealed class HouseholdItem
     public string NormalizedName { get; set; } = "";
     public string Unit { get; set; } = "";
     public decimal? ExpectedWeeklyUsage { get; set; }
+    public bool IsArchived { get; set; }
     public Guid Version { get; set; } = Guid.NewGuid();
 }

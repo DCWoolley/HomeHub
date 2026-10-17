@@ -63,19 +63,16 @@ Identity pages use static server rendering for cookies and antiforgery. Ordinary
 
 ## Development and verification
 
-Install the .NET 10 SDK. SQL Server LocalDB is the checked-in development default. Override `ConnectionStrings:DefaultConnection` with user secrets or environment configuration for another SQL Server; never commit credentials.
+Use PowerShell 7.3+, .NET 10, and Git. The shared gate restores the pinned local EF tool, checks layout, builds, tests, verifies migrations, and checks whitespace:
 
 ```powershell
-dotnet build HomeHub.slnx
-dotnet run --project src/HomeHub.Web
-dotnet test HomeHub.slnx --no-restore -v:m
-dotnet ef migrations has-pending-model-changes --project src/HomeHub.Web
-dotnet ef database update --project src/HomeHub.Web
+./scripts/Verify.ps1
+./scripts/Verify.ps1 -Sql -Browser
 ```
 
-Use EF tools compatible with .NET 10. The fresh migration lives in Data/Migrations. Apply it to a development database before registering users; production applies migrations at startup through Compose. Do not run development EF updates against production merely to verify the model.
+The full gate requires Windows with SQL Server LocalDB, sqlcmd, and Node.js 20+. SQL checks must run with no skipped tests. Browser checks use the locked Playwright version and matching Chromium, a generated disposable LocalDB database, a loopback app host, captured logs/screenshots, and automatic cleanup. Run the browser checks independently with `./scripts/Test-LocalBrowser.ps1`. The same full gate runs in GitHub Actions for pushes and pull requests; see [verification details](docs/agents/verification.md).
 
-Tests use isolated SQLite databases for use-case/HTTP behavior. On Windows with SQL Server LocalDB, set `$env:HOMEHUB_TEST_LOCALDB = '1'` before running tests to include fresh SQL migrations and concurrent invitation/ownership tests. These create and delete only a unique HomeHub_RestartTest_ database and never use the production connection. Without that setting, the SQL test reports a skip.
+Run `./scripts/Test-Workspace.ps1` to inspect the branch and existing changes before work; add `-ExpectedRef <ref>` to verify a task's baseline. For normal development, use `dotnet run --project src/HomeHub.Web`; configure your own development SQL Server via user secrets or environment variables. The verification runners never use production credentials. Deployments and the guarded production smoke test remain separate.
 
 The landing route is /, login /Account/Login, registration /Account/Register, dashboard /Dashboard, household /Household, and membership recovery /Household/Onboarding. Authentication is separate from layout; signed-in accounts without membership cannot access household routes.
 
@@ -106,6 +103,6 @@ Liveness is /health/live. Readiness is /health/ready and checks database connect
 
 For a full deployment smoke test, `./scripts/Test-Deployment.ps1 -VerifyRegistration` exercises account creation, invitation joining, login, and authenticated routes, including a 500-gram ingredient and recipe quantity of 250 grams. It uses unique synthetic accounts, a synthetic household, and synthetic meal/ingredient/unit rows, then cleans up only those records transactionally. It requires Windows sqlcmd and the configured application SQL login. SQL commands enable quoted identifiers to support filtered indexes.
 
-Add `-VerifyBrowser` to that command to exercise the shared ingredient modal, GBP prices, searchable meal recipes, atomic Save/discard, inline ingredient and custom-unit creation, reload, validation/reference guards, and desktop/mobile layout. This optional check requires Node.js, the Playwright package (on the module path), and installed Microsoft Edge. It uses only the synthetic test household and always cleans up its data. Set `HOMEHUB_BROWSER_ARTIFACTS` to an existing directory to save desktop/mobile screenshots.
+Add `-VerifyBrowser` to that command to exercise the shared ingredient modal, GBP prices, searchable meal recipes, atomic Save/discard, inline ingredient and custom-unit creation, reload, validation/reference guards, and desktop/mobile layout. This optional production check requires Node.js, npm ci for the pinned Playwright package, and installed Microsoft Edge. Local browser verification uses isolated Chromium instead. It uses only the synthetic test household and always cleans up its data. Set `HOMEHUB_BROWSER_ARTIFACTS` to an existing directory to save desktop/mobile screenshots.
 
-`scripts/Reset-HomeHubDatabase.ps1` is the guarded one-time legacy reset utility, not an update command. It refuses to run after the InitialRestart migration and checks create-database permission before deleting anything. It targets only the exact HomeHub database. Routine updates preserve all application data.
+`scripts/Reset-HomeHubDatabase.ps1` is the guarded one-time legacy reset utility, not an update command. It refuses to run after the InitialRestart migration and checks create-database permission before deleting anything. It targets only the exact HomeHub database. The historical reset is complete and grants no ongoing deletion permission; any future reset requires fresh explicit authorization. Routine updates preserve all application data.

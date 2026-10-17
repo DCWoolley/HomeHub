@@ -1,5 +1,5 @@
 // Input contains only synthetic test cookies; never print it. Local registration uses a disposable loopback host.
-const { chromium, expect } = require('playwright/test');
+const { chromium, expect } = require('@playwright/test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
@@ -17,7 +17,9 @@ async function main() {
         try { await checkFailure(); }
         finally { sql('DROP TRIGGER IF EXISTS dbo.HomeHub_BrowserRejectWrite'); }
     }
-    const browser = await chromium.launch({ channel: 'msedge', headless: true });
+    const browserChannel = settings.browserChannel || 'msedge';
+    assert.ok(['chromium', 'msedge'].includes(browserChannel), 'Unsupported test browser');
+    const browser = await chromium.launch({ ...(browserChannel === 'chromium' ? {} : { channel: browserChannel }), headless: true });
     let page;
     try {
         const context = await browser.newContext({ viewport: { width: 1280, height: 1000 } });

@@ -1,0 +1,11 @@
+{
+  "name": "homehub-verification",
+  "private": true,
+  "scripts": {
+    "check": "pwsh -NoProfile -File scripts/Verify.ps1",
+    "check:sql": "pwsh -NoProfile -File scripts/Verify.ps1 -Sql",
+    "check:browser": "pwsh -NoProfile -File scripts/Test-LocalBrowser.ps1"
+  },
+  "engines": { "node": ">=20" },
+  "devDependencies": { "@playwright/test": "1.64.1" }
+}
